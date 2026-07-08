@@ -54,6 +54,37 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.1)(tsx@4.23.0)
 
+  apps/driver:
+    dependencies:
+      '@b2b/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@b2b/web-kit':
+        specifier: workspace:*
+        version: link:../../packages/web-kit
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.7
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.3
+        version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.0))
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.1)(tsx@4.23.0)
+
   apps/kds:
     dependencies:
       '@b2b/shared':
