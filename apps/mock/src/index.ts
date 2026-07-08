@@ -32,7 +32,7 @@ import { clientPrices, clients, products, users } from './fixtures.js';
 
 let seq = 1;
 const id = (p: string) => `${p}${seq++}`;
-const now = () => new Date(1735689600000 + seq * 1000).toISOString(); // deterministic-ish
+const now = () => new Date().toISOString();
 
 const orders: Order[] = [];
 const ledger: LedgerEntry[] = [];

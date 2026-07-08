@@ -1,0 +1,70 @@
+/* Kitchen display — own dark identity, big type for a wall monitor seen from across the line. */
+:root {
+  --bg: #0e1116;
+  --surface: #171c24;
+  --ink: #f2f4f7;
+  --muted: #8b94a3;
+  --line: #262d38;
+}
+
+html, body, #root { height: 100%; }
+body { overflow: hidden; }
+
+.kds {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.kds__bar {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.kds__bar h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+.kds__bar .sub { color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+.kds__clock { margin-left: auto; font-family: var(--font-mono); color: var(--muted); }
+
+.kds__cols {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  min-height: 0;
+}
+.col { background: var(--bg); display: flex; flex-direction: column; min-height: 0; }
+.col__head {
+  padding: 12px 16px;
+  font-weight: 750;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 3px solid var(--accent);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.col__head .count {
+  font-family: var(--font-mono);
+  background: var(--accent);
+  color: #0e1116;
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 13px;
+}
+.col__body { flex: 1; overflow-y: auto; padding: 14px; display: grid; gap: 14px; align-content: start; }
+
+/* Bigger dockets for the monitor */
+.kds .docket__head { font-size: 17px; padding: 12px 14px; }
+.kds .docket__row { font-size: 16px; }
+.kds .docket__body { padding: 12px 14px; }
+
+.age { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.age--warn { color: var(--st-preparing); }
+.age--late { color: var(--st-cancelled); font-weight: 700; }
+
+.kds .btn { padding: 14px; font-size: 16px; }
+
+.empty { color: var(--muted); text-align: center; padding: 40px 0; font-size: 15px; }

@@ -1,0 +1,115 @@
+/* B2B design tokens — shared across manager, driver, KDS.
+   Mini apps inherit Telegram theme vars; --tg-* fall back to a light default here. */
+
+:root {
+  /* Brand */
+  --saffron: #e8951a;
+  --saffron-ink: #7a4a00;
+
+  /* Surfaces — overridden by Telegram theme in mini apps */
+  --bg: var(--tg-theme-bg-color, #f6f4f0);
+  --surface: var(--tg-theme-secondary-bg-color, #ffffff);
+  --ink: var(--tg-theme-text-color, #17140f);
+  --muted: var(--tg-theme-hint-color, #8a8378);
+  --line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --link: var(--tg-theme-link-color, var(--saffron));
+
+  /* Order status — the pipeline backbone. Same everywhere. */
+  --st-new: #3b82f6;
+  --st-preparing: #f59e0b;
+  --st-ready: #22c55e;
+  --st-assigned: #8b5cf6;
+  --st-delivering: #06b6d4;
+  --st-delivered: #14b8a6;
+  --st-closed: #64748b;
+  --st-cancelled: #ef4444;
+
+  /* Type */
+  --font-ui: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  /* Rhythm */
+  --r: 12px;
+  --gap: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Docket — the signature order-ticket component */
+.docket {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.docket__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  border-bottom: 1px dashed var(--line);
+}
+.docket__id { font-weight: 700; letter-spacing: -0.02em; }
+.docket__body { padding: 10px 12px; }
+.docket__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  padding: 3px 0;
+}
+.docket__row .q { font-family: var(--font-mono); color: var(--muted); }
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.chip::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 650;
+  background: var(--saffron);
+  color: #1a1000;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--saffron) 50%, transparent); outline-offset: 2px; }
+.btn--ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn--block { width: 100%; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
