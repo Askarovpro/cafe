@@ -1,9 +1,45 @@
 .wrap {
   max-width: 520px;
   margin: 0 auto;
-  padding: 12px 14px 40px;
+  padding: 12px 14px 96px;
   min-height: 100vh;
 }
+
+/* Bottom navbar */
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  max-width: 520px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+}
+.nav button {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px; border-radius: 14px; font: inherit; font-weight: 650; font-size: 14px;
+  color: var(--muted);
+}
+.nav button[data-active='true'] { background: var(--pill); color: var(--pill-ink); }
+
+/* Cash-in-hand hero */
+.cashhero {
+  background: var(--pill); color: var(--pill-ink);
+  border-radius: var(--r); padding: 20px; box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.cashhero .cap { color: #b9b9c0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.cashhero .amt { font-family: var(--font-mono); font-size: 34px; font-weight: 800; letter-spacing: -0.02em; margin-top: 6px; }
+.cashhero .amt small { font-size: 16px; color: #b9b9c0; font-weight: 600; }
+.cashhero .hint { color: #8f8f98; font-size: 12.5px; margin-top: 6px; }
+
+/* Stat pair */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.stat { background: var(--surface); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow-sm); }
+.stat .ico { color: var(--accent-deep); margin-bottom: 8px; }
+.stat .n { font-family: var(--font-mono); font-size: 26px; font-weight: 800; }
+.stat .l { color: var(--muted); font-size: 13px; }
 
 /* Black pill header, like the reference */
 .appbar {
