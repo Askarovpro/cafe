@@ -7,7 +7,7 @@ const shortId = (id: string) => (id.length > 8 ? id.slice(-4).toUpperCase() : id
 
 export function StatusChip({ status }: { status: OrderStatus }) {
   return (
-    <span className="chip" style={{ background: STATUS_COLOR[status] }}>
+    <span className="chip" style={{ ['--chip-c' as string]: STATUS_COLOR[status] }}>
       {STATUS_LABEL[status]}
     </span>
   );

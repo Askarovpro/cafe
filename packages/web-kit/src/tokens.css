@@ -1,27 +1,36 @@
 /* B2B design tokens — shared across manager, driver, KDS.
-   Mini apps inherit Telegram theme vars; --tg-* fall back to a light default here. */
+   Aesthetic: clean iOS delivery-app (white cards, soft shadows, gold accent, black pills).
+   KDS overrides surfaces for its dark wall-monitor identity. */
 
 :root {
-  /* Brand */
-  --saffron: #e8951a;
-  --saffron-ink: #7a4a00;
+  /* Brand — golden accent */
+  --saffron: #f2c14c;        /* primary accent (kept name for back-compat) */
+  --accent: #f2c14c;
+  --accent-deep: #e0a92e;    /* route line / pressed */
+  --accent-ink: #6b4e00;     /* text on soft-accent surfaces */
+  --ink-on-accent: #1b1500;  /* text on solid accent */
 
-  /* Surfaces — overridden by Telegram theme in mini apps */
-  --bg: var(--tg-theme-bg-color, #f6f4f0);
-  --surface: var(--tg-theme-secondary-bg-color, #ffffff);
-  --ink: var(--tg-theme-text-color, #17140f);
-  --muted: var(--tg-theme-hint-color, #8a8378);
-  --line: color-mix(in srgb, var(--ink) 12%, transparent);
-  --link: var(--tg-theme-link-color, var(--saffron));
+  /* Black pill (header, CTA, tracking card) */
+  --pill: #17171a;
+  --pill-ink: #ffffff;
 
-  /* Order status — the pipeline backbone. Same everywhere. */
+  /* Surfaces */
+  --bg: #efeeec;             /* warm light-grey page */
+  --surface: #ffffff;        /* cards */
+  --surface-2: #f5f5f4;      /* insets, fields */
+  --ink: #1b1b1f;            /* primary text */
+  --ink-2: #3a3a40;          /* secondary text */
+  --muted: #98979d;          /* hints */
+  --line: rgba(20, 20, 25, 0.07);
+
+  /* Order status pipeline — solid (KDS) + soft (chips) */
   --st-new: #3b82f6;
-  --st-preparing: #f59e0b;
-  --st-ready: #22c55e;
-  --st-assigned: #8b5cf6;
-  --st-delivering: #06b6d4;
+  --st-preparing: #eaa300;
+  --st-ready: #22a559;
+  --st-assigned: #7c5cff;
+  --st-delivering: #0ea5b7;
   --st-delivered: #14b8a6;
-  --st-closed: #64748b;
+  --st-closed: #7c7c85;
   --st-cancelled: #ef4444;
 
   /* Type */
@@ -29,8 +38,11 @@
   --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 
   /* Rhythm */
-  --r: 12px;
+  --r: 22px;        /* card radius */
+  --r-sm: 14px;     /* control radius */
   --gap: 12px;
+  --shadow: 0 10px 30px rgba(20, 20, 25, 0.07);
+  --shadow-sm: 0 2px 8px rgba(20, 20, 25, 0.05);
 }
 
 * { box-sizing: border-box; }
@@ -41,74 +53,98 @@ body {
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
 }
 
-/* Docket — the signature order-ticket component */
+/* Cards */
+.card {
+  background: var(--surface);
+  border-radius: var(--r);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Docket — order-ticket. Now a soft white card; mono only for numbers. */
 .docket {
   background: var(--surface);
-  border: 1px solid var(--line);
   border-radius: var(--r);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 .docket__head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  border-bottom: 1px dashed var(--line);
+  padding: 14px 16px 12px;
+  font-size: 15px;
 }
-.docket__id { font-weight: 700; letter-spacing: -0.02em; }
-.docket__body { padding: 10px 12px; }
+.docket__id { font-family: var(--font-mono); font-weight: 700; letter-spacing: -0.02em; }
+.docket__body { padding: 4px 16px 16px; }
 .docket__row {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 14px;
-  padding: 3px 0;
+  font-size: 15px;
+  padding: 4px 0;
 }
 .docket__row .q { font-family: var(--font-mono); color: var(--muted); }
 
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+/* Status chip — soft tinted pill with a grip dot */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 9px;
+  padding: 5px 11px 5px 9px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--chip-c, var(--ink));
+  background: color-mix(in srgb, var(--chip-c, var(--ink)) 15%, #fff);
   white-space: nowrap;
 }
 .chip::before {
   content: '';
-  width: 6px; height: 6px;
-  border-radius: 50%;
+  width: 7px; height: 7px;
+  border-radius: 2px;               /* squared grip dot, like the reference */
   background: currentColor;
-  opacity: 0.9;
 }
 
+/* Buttons */
 .btn {
   appearance: none;
   border: 0;
-  border-radius: 10px;
-  padding: 12px 16px;
+  border-radius: var(--r-sm);
+  padding: 15px 18px;
   font: inherit;
-  font-weight: 650;
-  background: var(--saffron);
-  color: #1a1000;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: var(--accent);
+  color: var(--ink-on-accent);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: filter 0.15s ease, transform 0.05s ease;
 }
-.btn:hover { filter: brightness(1.05); }
+.btn:hover { filter: brightness(1.03); }
 .btn:active { transform: translateY(1px); }
-.btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--saffron) 50%, transparent); outline-offset: 2px; }
-.btn--ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
 .btn--block { width: 100%; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--dark { background: var(--pill); color: var(--pill-ink); }
+.btn--ghost { background: var(--surface-2); color: var(--ink); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Round icon button (chat/call/copy) */
+.iconbtn {
+  appearance: none; border: 0; cursor: pointer;
+  width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink);
+}
+.iconbtn--dark { background: var(--pill); color: var(--pill-ink); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

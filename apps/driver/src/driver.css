@@ -1,38 +1,68 @@
 .wrap {
   max-width: 520px;
   margin: 0 auto;
-  padding: 14px 14px 40px;
+  padding: 12px 14px 40px;
   min-height: 100vh;
 }
-.top {
+
+/* Black pill header, like the reference */
+.appbar {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 2px 16px;
+  align-items: center;
+  gap: 12px;
+  background: var(--pill);
+  color: var(--pill-ink);
+  border-radius: 20px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
 }
-.top h1 { font-size: 18px; margin: 0; }
-.top .who { color: var(--muted); font-size: 13px; margin-left: auto; font-family: var(--font-mono); }
+.appbar .mark {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--accent); color: var(--ink-on-accent);
+  display: grid; place-items: center;
+}
+.appbar .title { font-size: 18px; font-weight: 750; letter-spacing: -0.02em; }
+.appbar .sub { font-size: 12px; color: #b9b9c0; margin-top: -2px; }
+.appbar .count {
+  margin-left: auto;
+  font-family: var(--font-mono); font-weight: 700; font-size: 13px;
+  background: rgba(255,255,255,0.12); color: #fff;
+  padding: 7px 12px; border-radius: 999px;
+}
 
-.list { display: grid; gap: 14px; }
+.sectiontitle { font-size: 13px; color: var(--muted); font-weight: 650; margin: 4px 2px 10px; }
 
-/* Delivery detail rows under the docket */
-.meta { display: grid; gap: 8px; }
-.meta a, .meta .line {
+.list { display: grid; gap: 16px; }
+
+/* Order card (order-detail style) */
+.ocard { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+.ocard__top {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
-  border-radius: 10px;
-  color: var(--ink);
-  text-decoration: none;
-  font-size: 15px;
+  padding: 16px 18px 12px;
 }
-.meta .ico { width: 18px; text-align: center; opacity: 0.7; }
-.cash {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--saffron-ink);
-  background: color-mix(in srgb, var(--saffron) 18%, transparent);
-}
+.ocard__id { font-family: var(--font-mono); font-weight: 800; font-size: 17px; letter-spacing: -0.02em; }
+.ocard__client { padding: 0 18px; font-size: 20px; font-weight: 750; letter-spacing: -0.02em; }
+.ocard__items { padding: 6px 18px 2px; color: var(--muted); font-size: 14px; }
 
-.empty { text-align: center; color: var(--muted); padding: 64px 0; }
-.empty .big { font-size: 40px; margin-bottom: 8px; }
+.drows { padding: 12px 18px 4px; display: grid; gap: 4px; }
+.drow { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+.drow + .drow { border-top: 1px solid var(--line); }
+.drow .ico {
+  width: 38px; height: 38px; border-radius: 12px; flex: none;
+  background: var(--surface-2); color: var(--ink);
+  display: grid; place-items: center;
+}
+.drow .lbl { color: var(--muted); font-size: 13px; }
+.drow .val { font-weight: 650; font-size: 15px; }
+.drow.tappable { text-decoration: none; color: inherit; }
+.drow--cash .ico { background: color-mix(in srgb, var(--accent) 22%, #fff); color: var(--accent-ink); }
+.drow--cash .val { font-family: var(--font-mono); color: var(--accent-ink); }
+
+.ocard__foot { padding: 8px 18px 18px; }
+
+.empty { text-align: center; color: var(--muted); padding: 72px 0; }
+.empty .big {
+  width: 72px; height: 72px; border-radius: 22px; margin: 0 auto 14px;
+  background: var(--surface); box-shadow: var(--shadow-sm);
+  display: grid; place-items: center; color: var(--muted);
+}
