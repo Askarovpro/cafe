@@ -49,7 +49,7 @@ export class ApiClient {
   orders(query?: { status?: string; mine?: boolean }) {
     const q = new URLSearchParams();
     if (query?.status) q.set('status', query.status);
-    if (query?.mine) q.set('mine', '1');
+    if (query?.mine) q.set('mine', 'true');
     const s = q.toString();
     return this.req<Order[]>('GET', `/orders${s ? `?${s}` : ''}`);
   }
