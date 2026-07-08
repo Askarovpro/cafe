@@ -1,4 +1,5 @@
 import { Role, type AuthResponse, type User } from '@b2b/shared';
+import { unauthorized } from '../errors.js';
 import { id } from '../ids.js';
 import type { AppRepository } from '../repositories/types.js';
 import { signJwt, verifyJwt } from './jwt.js';
@@ -9,9 +10,18 @@ export class AuthService {
     private readonly repo: AppRepository,
     private readonly botToken: string,
     private readonly jwtSecret: string,
+    private readonly devAuth: boolean = false,
   ) {}
 
   async loginTelegram(initData: string): Promise<AuthResponse> {
+    if (initData.startsWith('dev:')) {
+      const match = /^dev:([^:]+)$/.exec(initData);
+      if (!this.devAuth || !match) throw unauthorized('invalid Telegram initData');
+      const user = await this.repo.findUserById(match[1]);
+      if (!user) throw unauthorized('user not found');
+      return { token: this.issueToken(user), user };
+    }
+
     const telegramUser = validateTelegramInitData(initData, this.botToken);
     const telegramId = String(telegramUser.id);
     let user = await this.repo.findUserByTelegramId(telegramId);

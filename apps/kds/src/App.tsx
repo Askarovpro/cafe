@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OrderAction, OrderStatus } from '@b2b/shared';
 import type { Order } from '@b2b/shared';
-import { ApiClient, Docket, Money, connectOrders } from '@b2b/web-kit';
+import { ApiClient, Docket, Money, connectOrders, initTelegram } from '@b2b/web-kit';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 const WS = API.replace(/^http/, 'ws') + '/ws';
 const api = new ApiClient(API);
+const DEV_USER = import.meta.env.VITE_DEV_USER ?? 'u2'; // kitchen, for local dev-auth outside Telegram
+
+async function authenticate(): Promise<void> {
+  const { initData, inTelegram } = initTelegram();
+  const r = await api.authTelegram(inTelegram ? initData : `dev:${DEV_USER}`);
+  api.setToken(r.token);
+}
 
 const COLUMNS: { status: OrderStatus; title: string; accent: string; advance?: OrderAction; label?: string }[] = [
   { status: OrderStatus.New, title: 'Tushgan', accent: 'var(--st-new)', advance: OrderAction.StartPrep, label: 'Boshlash' },
@@ -24,8 +31,13 @@ export function App() {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    api.orders().then((list) => setOrders(Object.fromEntries(list.map((o) => [o.id, o])))).catch(() => {});
-    const stop = connectOrders(WS, { subscribe: 'kds' }, (e) => {
+    let stop = () => {};
+    authenticate()
+      .catch(() => {}) // mock ignores auth; real backend needs it
+      .then(() => api.orders())
+      .then((list) => setOrders(Object.fromEntries(list.map((o) => [o.id, o]))))
+      .catch(() => {});
+    stop = connectOrders(WS, { subscribe: 'kds' }, (e) => {
       setOrders((prev) => ({ ...prev, [e.order.id]: e.order }));
     });
     const t = setInterval(() => setNow(Date.now()), 30000);

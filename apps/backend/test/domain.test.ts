@@ -14,6 +14,7 @@ import { FakePosterClient } from '../src/poster-sync/poster-client.js';
 import { RealtimeHub } from '../src/realtime/hub.js';
 import { MemoryRepository } from '../src/repositories/memory.js';
 import { createTelegramInitData } from '../src/auth/telegram-init-data.js';
+import { buildServer } from '../src/server.js';
 
 const productA: Product = {
   id: 'p1',
@@ -50,7 +51,7 @@ const manager: User = { id: 'u-manager', telegramId: '1001', role: Role.Manager,
 const kitchen: User = { id: 'u-kitchen', telegramId: '1002', role: Role.Kitchen, name: 'Kitchen' };
 const driver: User = { id: 'u-driver', telegramId: '1003', role: Role.Driver, name: 'Driver' };
 
-function seededServices() {
+function seededServices(options: { devAuth?: boolean } = {}) {
   const repo = new MemoryRepository();
   const poster = new FakePosterClient();
   const notified: string[] = [];
@@ -59,6 +60,7 @@ function seededServices() {
     poster,
     jwtSecret: 'test-jwt-secret',
     botToken: '123456:test-token',
+    devAuth: options.devAuth,
     notifier: { notifyUser: async (userId, text) => void notified.push(`${userId}:${text}`) },
   });
 
@@ -230,6 +232,60 @@ describe('auth', () => {
     expect(auth.user.telegramId).toBe('9999');
     expect(auth.token).toBeTruthy();
     await expect(services.auth.loginTelegram(initData.replace('Vali', 'Hacker'))).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('accepts dev:<userId> for existing users when dev auth is on', async () => {
+    const { services } = seededServices({ devAuth: true });
+
+    const auth = await services.auth.loginTelegram(`dev:${manager.id}`);
+
+    expect(auth.user).toEqual(manager);
+    expect(auth.token).toBeTruthy();
+  });
+
+  it('rejects dev:<userId> when dev auth is off', async () => {
+    const { services } = seededServices({ devAuth: false });
+
+    await expect(services.auth.loginTelegram(`dev:${manager.id}`)).rejects.toMatchObject({ statusCode: 401 });
+  });
+});
+
+describe('server wiring', () => {
+  it('uses the fake Poster client when POSTER_TOKEN is empty', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, kitchen], clients: [client], products: [productA] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+
+    try {
+      const order = await services.orders.create(
+        {
+          clientId: client.id,
+          items: [{ productId: productA.id, qty: 1 }],
+          portions: 1,
+          location: client.locations[0],
+          contactPhone: client.contactPhone,
+          paymentType: PaymentType.Transfer,
+        },
+        manager,
+      );
+
+      await services.orders.transition(order.id, { action: OrderAction.StartPrep }, kitchen);
+      const ready = await services.orders.transition(order.id, { action: OrderAction.Ready }, kitchen);
+
+      expect(ready.posterOrderId).toBe(`poster-${order.id}`);
+    } finally {
+      await app.close();
+    }
   });
 });
 

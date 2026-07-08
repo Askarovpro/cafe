@@ -16,8 +16,8 @@ export function App() {
   const [orders, setOrders] = useState<Record<string, Order>>({});
 
   useEffect(() => {
-    const { initData } = initTelegram();
-    api.authTelegram(initData)
+    const { initData, inTelegram } = initTelegram();
+    api.authTelegram(inTelegram ? initData : `dev:${DEV_DRIVER}`)
       .then((r) => {
         api.setToken(r.token);
         const dId = r.user.role === Role.Driver ? r.user.id : DEV_DRIVER;

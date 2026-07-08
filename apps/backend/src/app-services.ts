@@ -17,6 +17,7 @@ export function createAppServices(input: {
   poster: PosterClient;
   botToken: string;
   jwtSecret: string;
+  devAuth?: boolean;
   notifier?: Notifier;
   hub?: RealtimeHub;
 }) {
@@ -24,7 +25,7 @@ export function createAppServices(input: {
   const notifier = input.notifier ?? new NoopNotifier();
   const ledger = new LedgerService(input.repo);
   return {
-    auth: new AuthService(input.repo, input.botToken, input.jwtSecret),
+    auth: new AuthService(input.repo, input.botToken, input.jwtSecret, input.devAuth ?? false),
     clients: new ClientsService(input.repo),
     ledger,
     orders: new OrdersService(input.repo, ledger, input.poster, notifier, hub),

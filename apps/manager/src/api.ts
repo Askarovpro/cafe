@@ -8,9 +8,11 @@ export const api = new ApiClient(API);
 // ponytail: hardcoded list, replace with a /drivers endpoint when driver roster grows.
 export const DRIVERS: { id: string; name: string }[] = [{ id: 'd1', name: 'Botir' }];
 
+const DEV_USER = import.meta.env.VITE_DEV_USER ?? 'u1'; // manager, for local dev-auth outside Telegram
+
 export async function authenticate(): Promise<string> {
-  const { initData } = initTelegram();
-  const r = await api.authTelegram(initData);
+  const { initData, inTelegram } = initTelegram();
+  const r = await api.authTelegram(inTelegram ? initData : `dev:${DEV_USER}`);
   api.setToken(r.token);
   return r.user.id;
 }
