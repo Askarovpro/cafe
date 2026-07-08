@@ -15,7 +15,9 @@ function tg(): TgWebApp | undefined {
 
 export function initTelegram(): { initData: string; inTelegram: boolean } {
   const app = tg();
-  if (!app) return { initData: '', inTelegram: false };
+  // telegram-web-app.js defines window.Telegram.WebApp even in a plain browser, but
+  // initData is only populated when actually launched from Telegram. Use that as the signal.
+  if (!app || !app.initData) return { initData: '', inTelegram: false };
   app.ready();
   app.expand();
   // Map Telegram theme params to our CSS vars (already referenced in tokens.css).

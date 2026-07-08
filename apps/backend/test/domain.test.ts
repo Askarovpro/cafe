@@ -253,7 +253,12 @@ describe('auth', () => {
 describe('server wiring', () => {
   it('uses the fake Poster client when POSTER_TOKEN is empty', async () => {
     const repo = new MemoryRepository();
-    repo.seed({ users: [manager, kitchen], clients: [client], products: [productA] });
+    repo.seed({
+      users: [manager, kitchen],
+      clients: [client],
+      products: [productA],
+      clientPrices: [{ clientId: client.id, productId: productA.id, price: productA.basePrice }],
+    });
     const { app, services } = await buildServer({
       repo,
       env: {

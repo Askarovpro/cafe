@@ -2,6 +2,9 @@ import type { Order } from '@b2b/shared';
 import { OrderStatus } from '@b2b/shared';
 import { STATUS_COLOR, STATUS_LABEL, som } from './status.js';
 
+// Short, ticket-style order number. UUID ids -> last 4 chars; short ids kept as-is.
+const shortId = (id: string) => (id.length > 8 ? id.slice(-4).toUpperCase() : id);
+
 export function StatusChip({ status }: { status: OrderStatus }) {
   return (
     <span className="chip" style={{ background: STATUS_COLOR[status] }}>
@@ -27,7 +30,7 @@ export function Docket({
   return (
     <div className="docket">
       <div className="docket__head">
-        <span className="docket__id">#{order.id}</span>
+        <span className="docket__id">#{shortId(order.id)}</span>
         <span style={{ color: 'var(--muted)' }}>· {order.portions}p</span>
         <span style={{ flex: 1 }} />
         {showStatus && <StatusChip status={order.status} />}
