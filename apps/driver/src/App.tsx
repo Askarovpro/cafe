@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OrderAction, OrderStatus, PaymentType, Role } from '@b2b/shared';
 import type { Order } from '@b2b/shared';
-import { ApiClient, Icon, StatusChip, connectOrders, initTelegram, som } from '@b2b/web-kit';
+import { ApiClient, Icon, StatusChip, connectOrders, initTelegram, mapsRouteUrl, som } from '@b2b/web-kit';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 const WS = API.replace(/^http/, 'ws') + '/ws';
@@ -166,13 +166,14 @@ function OrderCard({ order: o, onAct }: { order: Order; onAct: (o: Order, a: Ord
       <div className="ocard__items">{itemsSummary} · {o.portions}p</div>
 
       <div className="drows">
-        <div className="drow">
-          <span className="ico"><Icon name="destination" size={20} /></span>
+        <a className="drow tappable" href={mapsRouteUrl(o.location)} target="_blank" rel="noreferrer">
+          <span className="ico ico--nav"><Icon name="destination" size={20} /></span>
           <div>
-            <div className="lbl">Manzil</div>
+            <div className="lbl">Manzil · yo'l ko'rsatish</div>
             <div className="val">{o.location.label} — {o.location.address}</div>
           </div>
-        </div>
+          <span style={{ marginLeft: 'auto', color: 'var(--accent-deep)' }}><Icon name="chevronRight" size={20} /></span>
+        </a>
         <a className="drow tappable" href={`tel:${o.contactPhone}`}>
           <span className="ico"><Icon name="phone" size={20} /></span>
           <div>

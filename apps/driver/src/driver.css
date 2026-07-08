@@ -93,6 +93,7 @@
 .drow.tappable { text-decoration: none; color: inherit; }
 .drow--cash .ico { background: color-mix(in srgb, var(--accent) 22%, #fff); color: var(--accent-ink); }
 .drow--cash .val { font-family: var(--font-mono); color: var(--accent-ink); }
+.drow .ico--nav { background: var(--pill); color: var(--accent); }
 
 .ocard__foot { padding: 8px 18px 18px; }
 

@@ -5,3 +5,4 @@ export * from './telegram.js';
 export * from './status.js';
 export * from './components.js';
 export * from './Icon.js';
+export * from './geo.js';
