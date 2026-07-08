@@ -93,6 +93,7 @@ export class OrdersService {
 
     if (input.action === OrderAction.Assign) await this.applyAssign(updated, input);
     if (input.action === OrderAction.Deliver) updated.cashCollected = input.cashCollected ?? updated.paymentType === PaymentType.Cash;
+    if (input.action === OrderAction.HandoverCash) updated.cashHandedOver = true;
     if (input.action === OrderAction.Ready) await this.ensureReadySideEffects(updated, user);
     if (input.action === OrderAction.Close) await this.ensureClosePayment(updated, user);
     if (input.action === OrderAction.Cancel) await this.ensureCancelReversal(order, updated, user);

@@ -236,6 +236,7 @@ function orderFromRow(row: OrderRow): Order {
     notes: row.notes ?? undefined,
     posterOrderId: row.posterOrderId ?? undefined,
     cashCollected: row.cashCollected ?? undefined,
+    cashHandedOver: row.cashHandedOver ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

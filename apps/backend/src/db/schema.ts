@@ -58,6 +58,7 @@ export const orders = pgTable('orders', {
   notes: text('notes'),
   posterOrderId: text('poster_order_id'),
   cashCollected: boolean('cash_collected'),
+  cashHandedOver: boolean('cash_handed_over'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
 });

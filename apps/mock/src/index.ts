@@ -225,6 +225,7 @@ app.post('/orders/:id/transition', async (req, reply) => {
     if (body.deliveryType === DeliveryType.Yandex) o.yandexDeeplink = yandexDeeplink(o.location.lat, o.location.lng);
   }
   if (body.action === OrderAction.Deliver) o.cashCollected = body.cashCollected ?? o.paymentType === PaymentType.Cash;
+  if (body.action === OrderAction.HandoverCash) o.cashHandedOver = true;
   if (body.action === OrderAction.Close && o.paymentType !== PaymentType.Transfer) {
     const pay: LedgerEntry = { id: id('l'), clientId: o.clientId, orderId: o.id, type: 'payment', amount: o.total, method: o.paymentType, createdBy: 'u1', createdAt: now() };
     ledger.push(pay);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OrderAction, OrderStatus, PaymentType, Role } from '@b2b/shared';
 import type { Order } from '@b2b/shared';
-import { ApiClient, Icon, StatusChip, connectOrders, initTelegram, mapsRouteUrl, som } from '@b2b/web-kit';
+import { ApiClient, Chip, Icon, StatusChip, connectOrders, initTelegram, mapsRouteUrl, som } from '@b2b/web-kit';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 const WS = API.replace(/^http/, 'ws') + '/ws';
@@ -46,15 +46,21 @@ export function App() {
     () => all.filter((o) => ACTIVE.has(o.status)).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [orders],
   );
-  // Cash physically held: cash orders delivered but not yet reconciled (closed) by the manager.
-  const cashHeld = all.filter((o) => o.paymentType === PaymentType.Cash && o.status === OrderStatus.Delivered);
-  const cashInHand = cashHeld.reduce((s, o) => s + o.total, 0);
+  // Cash lifecycle: held (with driver) -> pending (handed over, awaiting manager) -> accepted (closed).
+  const cashDelivered = all.filter((o) => o.paymentType === PaymentType.Cash && o.status === OrderStatus.Delivered);
+  const held = cashDelivered.filter((o) => !o.cashHandedOver);
+  const pending = cashDelivered.filter((o) => o.cashHandedOver);
+  const heldTotal = held.reduce((s, o) => s + o.total, 0);
+  const pendingTotal = pending.reduce((s, o) => s + o.total, 0);
   const deliveredTotal = all.filter((o) => DONE.has(o.status)).length;
   const deliveredToday = all.filter((o) => DONE.has(o.status) && isToday(o.updatedAt)).length;
 
+  const upsert = (u: Order) => setOrders((p) => ({ ...p, [u.id]: u }));
   const act = (o: Order, action: OrderAction) =>
     api.transition(o.id, { action, ...(action === OrderAction.Deliver ? { cashCollected: o.paymentType === PaymentType.Cash } : {}) })
-      .then((u) => setOrders((p) => ({ ...p, [u.id]: u }))).catch(() => {});
+      .then(upsert).catch(() => {});
+  const handoverAll = () =>
+    Promise.all(held.map((o) => api.transition(o.id, { action: OrderAction.HandoverCash }).then(upsert))).catch(() => {});
 
   return (
     <div className="wrap">
@@ -84,7 +90,10 @@ export function App() {
       )}
 
       {tab === 'reports' && (
-        <Reports cashInHand={cashInHand} cashHeld={cashHeld} deliveredToday={deliveredToday} deliveredTotal={deliveredTotal} />
+        <Reports
+          held={held} pending={pending} heldTotal={heldTotal} pendingTotal={pendingTotal}
+          deliveredToday={deliveredToday} deliveredTotal={deliveredTotal} onHandover={handoverAll}
+        />
       )}
 
       <nav className="nav">
@@ -99,15 +108,22 @@ export function App() {
   );
 }
 
-function Reports({ cashInHand, cashHeld, deliveredToday, deliveredTotal }: {
-  cashInHand: number; cashHeld: Order[]; deliveredToday: number; deliveredTotal: number;
+function Reports({ held, pending, heldTotal, pendingTotal, deliveredToday, deliveredTotal, onHandover }: {
+  held: Order[]; pending: Order[]; heldTotal: number; pendingTotal: number;
+  deliveredToday: number; deliveredTotal: number; onHandover: () => void;
 }) {
   return (
     <>
       <div className="cashhero">
         <div className="cap"><Icon name="wallet" size={16} /> Qo'lingizdagi naqd</div>
-        <div className="amt">{som(cashInHand)} <small>so'm</small></div>
-        <div className="hint">Menejer qabul qilgach kamayadi</div>
+        <div className="amt">{som(heldTotal)} <small>so'm</small></div>
+        {pendingTotal > 0 && <div className="hint">⏳ Tasdiq kutilmoqda: {som(pendingTotal)} so'm</div>}
+        {held.length > 0 && (
+          <button className="btn btn--block" style={{ marginTop: 14 }} onClick={onHandover}>
+            <Icon name="wallet" size={20} /> Pulni topshirdim
+          </button>
+        )}
+        {held.length === 0 && pendingTotal === 0 && <div className="hint">Hammasi topshirilgan 🎉</div>}
       </div>
 
       <div className="stats">
@@ -123,32 +139,28 @@ function Reports({ cashInHand, cashHeld, deliveredToday, deliveredTotal }: {
         </div>
       </div>
 
-      {cashHeld.length > 0 && (
-        <>
-          <div className="sectiontitle">Topshirilmagan naqd</div>
-          <div className="list">
-            {cashHeld.map((o) => (
-              <div className="ocard" key={o.id}>
-                <div className="ocard__top">
-                  <span className="ocard__id">#{o.id.length > 8 ? o.id.slice(-4).toUpperCase() : o.id}</span>
-                  <span style={{ flex: 1 }} />
-                  <StatusChip status={o.status} />
-                </div>
-                <div className="ocard__client">{o.clientName}</div>
-                <div className="drows">
-                  <div className="drow drow--cash">
-                    <span className="ico"><Icon name="money" size={20} /></span>
-                    <div>
-                      <div className="lbl">Naqd</div>
-                      <div className="val">{som(o.total)} so'm</div>
-                    </div>
-                  </div>
+      {(held.length > 0 || pending.length > 0) && <div className="sectiontitle">Naqd buyurtmalar</div>}
+      <div className="list">
+        {[...held, ...pending].map((o) => (
+          <div className="ocard" key={o.id}>
+            <div className="ocard__top">
+              <span className="ocard__id">#{o.id.length > 8 ? o.id.slice(-4).toUpperCase() : o.id}</span>
+              <span style={{ flex: 1 }} />
+              {o.cashHandedOver ? <Chip tone="idle">⏳ Topshirildi</Chip> : <Chip tone="active">Qo'lda</Chip>}
+            </div>
+            <div className="ocard__client">{o.clientName}</div>
+            <div className="drows">
+              <div className="drow drow--cash">
+                <span className="ico"><Icon name="money" size={20} /></span>
+                <div>
+                  <div className="lbl">Naqd</div>
+                  <div className="val">{som(o.total)} so'm</div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </>
-      )}
+        ))}
+      </div>
     </>
   );
 }

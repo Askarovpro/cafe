@@ -24,6 +24,7 @@ export enum OrderAction {
   Assign = 'assign', // Ready -> Assigned (manager); own driver or Yandex deeplink
   Pickup = 'pickup', // Assigned -> Delivering (driver)
   Deliver = 'deliver', // Delivering -> Delivered (driver)
+  HandoverCash = 'handover_cash', // Delivered self-transition (driver): marks cash handed to manager
   Close = 'close', // Delivered -> Closed (manager); cash received / prepaid
   Cancel = 'cancel', // -> Cancelled; reverses side effects only if past Ready
 }
@@ -46,6 +47,8 @@ export const ORDER_TRANSITIONS: Record<OrderAction, { from: OrderStatus[]; to: O
   [OrderAction.Assign]: { from: [OrderStatus.Ready], to: OrderStatus.Assigned, role: Role.Manager },
   [OrderAction.Pickup]: { from: [OrderStatus.Assigned], to: OrderStatus.Delivering, role: Role.Driver },
   [OrderAction.Deliver]: { from: [OrderStatus.Delivering], to: OrderStatus.Delivered, role: Role.Driver },
+  // Self-transition: status stays Delivered, side effect sets cashHandedOver = true.
+  [OrderAction.HandoverCash]: { from: [OrderStatus.Delivered], to: OrderStatus.Delivered, role: Role.Driver },
   [OrderAction.Close]: { from: [OrderStatus.Delivered], to: OrderStatus.Closed, role: Role.Manager },
   // Cancel is special: allowed from any pre-Closed state; role checked separately (manager/owner).
   [OrderAction.Cancel]: {

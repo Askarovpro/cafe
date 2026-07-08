@@ -66,6 +66,7 @@ export interface Order {
   notes?: string;
   posterOrderId?: string; // set after Ready writeback
   cashCollected?: boolean; // driver marks on delivery for cash orders
+  cashHandedOver?: boolean; // driver handed cash to manager; awaiting manager accept (Close)
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }

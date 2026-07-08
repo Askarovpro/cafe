@@ -18,11 +18,14 @@ export function OrdersScreen({ orders, onChange }: { orders: Record<string, Orde
 
   return (
     <>
-      {list.map((o) => (
-        <div key={o.id} className={o.status === OrderStatus.Ready ? 'alert' : ''} style={{ borderRadius: 'var(--r)' }}>
-          <Docket order={o} actions={<OrderActions order={o} onChange={onChange} />} />
-        </div>
-      ))}
+      {list.map((o) => {
+        const needsAction = o.status === OrderStatus.Ready || (o.status === OrderStatus.Delivered && o.cashHandedOver);
+        return (
+          <div key={o.id} className={needsAction ? 'alert' : ''} style={{ borderRadius: 'var(--r)' }}>
+            <Docket order={o} actions={<OrderActions order={o} onChange={onChange} />} />
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -60,12 +63,18 @@ function OrderActions({ order, onChange }: { order: Order; onChange: (o: Order) 
     );
   }
   if (order.status === OrderStatus.Delivered) {
+    const isCash = order.paymentType === PaymentType.Cash;
     return (
-      <button className="btn btn--block" onClick={() => run({ action: OrderAction.Close })}>
-        {order.paymentType === PaymentType.Cash
-          ? <>Naqdni qabul qildim · <Money value={order.total} /> so'm</>
-          : 'Yopish (to\'landi)'}
-      </button>
+      <>
+        {isCash && (
+          <div className="muted" style={{ color: order.cashHandedOver ? 'var(--st-ready)' : 'var(--muted)' }}>
+            {order.cashHandedOver ? '🟢 Driver naqdni topshirdi' : '⏳ Driver hali topshirmagan'}
+          </div>
+        )}
+        <button className="btn btn--block" onClick={() => run({ action: OrderAction.Close })}>
+          {isCash ? <>Naqdni qabul qildim · <Money value={order.total} /> so'm</> : "Yopish (to'landi)"}
+        </button>
+      </>
     );
   }
   return <div className="muted">Oshxonada…</div>;

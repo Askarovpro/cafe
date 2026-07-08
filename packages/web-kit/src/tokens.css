@@ -91,7 +91,7 @@ body {
 
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* Status chip — soft tinted pill with a grip dot */
+/* Status chip — restrained tones (gold/grey/green/red) with a grip dot */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -100,8 +100,6 @@ body {
   border-radius: 999px;
   font-size: 12.5px;
   font-weight: 650;
-  color: var(--chip-c, var(--ink));
-  background: color-mix(in srgb, var(--chip-c, var(--ink)) 15%, #fff);
   white-space: nowrap;
 }
 .chip::before {
@@ -110,6 +108,10 @@ body {
   border-radius: 2px;               /* squared grip dot, like the reference */
   background: currentColor;
 }
+.chip--active { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 26%, #fff); }
+.chip--idle   { color: var(--ink-2);      background: var(--surface-2); }
+.chip--done   { color: #157a43;           background: #e5f5ec; }
+.chip--cancel { color: #b42318;           background: #fdece9; }
 
 /* Buttons */
 .btn {

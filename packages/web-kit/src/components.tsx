@@ -1,16 +1,17 @@
 import type { Order } from '@b2b/shared';
 import { OrderStatus } from '@b2b/shared';
-import { STATUS_COLOR, STATUS_LABEL, som } from './status.js';
+import { CHIP_TONE, STATUS_LABEL, som, type ChipTone } from './status.js';
 
 // Short, ticket-style order number. UUID ids -> last 4 chars; short ids kept as-is.
 const shortId = (id: string) => (id.length > 8 ? id.slice(-4).toUpperCase() : id);
 
+// Generic restrained chip — reused for order status and custom labels (e.g. cash states).
+export function Chip({ tone, children }: { tone: ChipTone; children: React.ReactNode }) {
+  return <span className={`chip chip--${tone}`}>{children}</span>;
+}
+
 export function StatusChip({ status }: { status: OrderStatus }) {
-  return (
-    <span className="chip" style={{ ['--chip-c' as string]: STATUS_COLOR[status] }}>
-      {STATUS_LABEL[status]}
-    </span>
-  );
+  return <Chip tone={CHIP_TONE[status]}>{STATUS_LABEL[status]}</Chip>;
 }
 
 export function Money({ value, className = '' }: { value: number; className?: string }) {
