@@ -1,4 +1,5 @@
 import {
+  CashCustody,
   DeliveryType,
   ORDER_TRANSITIONS,
   OrderAction,
@@ -80,6 +81,7 @@ export class OrdersService {
   async list(query: { status?: string; mine?: boolean }, user: User): Promise<Order[]> {
     if (user.role === Role.Driver) return this.repo.listOrders({ status: query.status, driverId: user.id });
     if (user.role === Role.Kitchen) return this.repo.listOrders({ status: query.status, activeOnly: true });
+    if (user.role === Role.Finance) return this.repo.listOrders({ status: query.status });
     return this.repo.listOrders({ status: query.status, createdBy: query.mine ? user.id : undefined });
   }
 
@@ -93,7 +95,9 @@ export class OrdersService {
 
     if (input.action === OrderAction.Assign) await this.applyAssign(updated, input);
     if (input.action === OrderAction.Deliver) updated.cashCollected = input.cashCollected ?? updated.paymentType === PaymentType.Cash;
-    if (input.action === OrderAction.HandoverCash) updated.cashHandedOver = true;
+    if (input.action === OrderAction.CashToManager) updated.cashCustody = CashCustody.Manager;
+    if (input.action === OrderAction.CashToFinance) updated.cashCustody = CashCustody.Finance;
+    if (input.action === OrderAction.CashConfirm) await this.ensureClosePayment(updated, user);
     if (input.action === OrderAction.Ready) await this.ensureReadySideEffects(updated, user);
     if (input.action === OrderAction.Close) await this.ensureClosePayment(updated, user);
     if (input.action === OrderAction.Cancel) await this.ensureCancelReversal(order, updated, user);

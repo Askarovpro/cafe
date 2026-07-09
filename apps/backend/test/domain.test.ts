@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CashCustody,
   DeliveryType,
   OrderAction,
   OrderStatus,
@@ -50,6 +51,7 @@ const client: Client = {
 const manager: User = { id: 'u-manager', telegramId: '1001', role: Role.Manager, name: 'Manager' };
 const kitchen: User = { id: 'u-kitchen', telegramId: '1002', role: Role.Kitchen, name: 'Kitchen' };
 const driver: User = { id: 'u-driver', telegramId: '1003', role: Role.Driver, name: 'Driver' };
+const finance: User = { id: 'u-finance', telegramId: '1004', role: Role.Finance, name: 'Finance' };
 
 function seededServices(options: { devAuth?: boolean } = {}) {
   const repo = new MemoryRepository();
@@ -65,7 +67,7 @@ function seededServices(options: { devAuth?: boolean } = {}) {
   });
 
   repo.seed({
-    users: [manager, kitchen, driver],
+    users: [manager, kitchen, driver, finance],
     clients: [client],
     products: [productA, productB],
     clientPrices: [{ clientId: client.id, productId: productA.id, price: 32000 }],
@@ -213,7 +215,7 @@ describe('orders', () => {
     expect(notified.some((message) => message.startsWith(`${driver.id}:`))).toBe(true);
   });
 
-  it('lets drivers hand over cash before manager close', async () => {
+  it('moves cash through manager and finance custody before finance closes with one payment', async () => {
     const { services, poster } = seededServices();
     const order = await services.orders.create(
       {
@@ -227,7 +229,7 @@ describe('orders', () => {
       manager,
     );
 
-    await expect(services.orders.transition(order.id, { action: OrderAction.HandoverCash }, driver)).rejects.toMatchObject({
+    await expect(services.orders.transition(order.id, { action: OrderAction.CashConfirm }, finance)).rejects.toMatchObject({
       statusCode: 409,
     });
 
@@ -240,25 +242,63 @@ describe('orders', () => {
     expect(delivered.status).toBe(OrderStatus.Delivered);
     expect(delivered.cashCollected).toBe(true);
 
-    await expect(services.orders.transition(order.id, { action: OrderAction.HandoverCash }, manager)).rejects.toMatchObject({
+    await expect(services.orders.transition(order.id, { action: OrderAction.CashToFinance }, driver)).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    await expect(services.orders.transition(order.id, { action: OrderAction.CashConfirm }, manager)).rejects.toMatchObject({
       statusCode: 403,
     });
 
-    const handedOver = await services.orders.transition(order.id, { action: OrderAction.HandoverCash }, driver);
-    const handedOverAgain = await services.orders.transition(order.id, { action: OrderAction.HandoverCash }, driver);
+    const withManager = await services.orders.transition(order.id, { action: OrderAction.CashToManager }, driver);
+    const withFinance = await services.orders.transition(order.id, { action: OrderAction.CashToFinance }, manager);
 
-    expect(handedOver).toMatchObject({ status: OrderStatus.Delivered, cashHandedOver: true });
-    expect(handedOverAgain).toMatchObject({ status: OrderStatus.Delivered, cashHandedOver: true });
+    expect(withManager).toMatchObject({ status: OrderStatus.Delivered, cashCustody: CashCustody.Manager });
+    expect(withFinance).toMatchObject({ status: OrderStatus.Delivered, cashCustody: CashCustody.Finance });
     expect(poster.createdOrders).toHaveLength(1);
     expect((await services.ledger.getClientLedger(client.id)).entries.filter((entry) => entry.type === 'payment')).toHaveLength(0);
 
-    const closed = await services.orders.transition(order.id, { action: OrderAction.Close }, manager);
+    const closed = await services.orders.transition(order.id, { action: OrderAction.CashConfirm }, finance);
+    await expect(services.orders.transition(order.id, { action: OrderAction.CashConfirm }, finance)).rejects.toMatchObject({
+      statusCode: 409,
+    });
+
     const ledger = await services.ledger.getClientLedger(client.id);
 
     expect(closed.status).toBe(OrderStatus.Closed);
-    expect(closed.cashHandedOver).toBe(true);
+    expect(closed.cashCustody).toBe(CashCustody.Finance);
     expect(ledger.entries.filter((entry) => entry.type === 'payment' && entry.method === PaymentType.Cash)).toHaveLength(1);
     expect(ledger.balance).toBe(0);
+  });
+
+  it('lets finance list all orders even when mine is requested', async () => {
+    const { services } = seededServices();
+    const otherManager: User = { id: 'u-other-manager', telegramId: '1005', role: Role.Manager, name: 'Other Manager' };
+    await services.orders.create(
+      {
+        clientId: client.id,
+        items: [{ productId: productA.id, qty: 1 }],
+        portions: 1,
+        location: client.locations[0],
+        contactPhone: client.contactPhone,
+        paymentType: PaymentType.Cash,
+      },
+      manager,
+    );
+    await services.orders.create(
+      {
+        clientId: client.id,
+        items: [{ productId: productA.id, qty: 1 }],
+        portions: 1,
+        location: client.locations[0],
+        contactPhone: client.contactPhone,
+        paymentType: PaymentType.Cash,
+      },
+      otherManager,
+    );
+
+    const financeOrders = await services.orders.list({ mine: true }, finance);
+
+    expect(financeOrders).toHaveLength(2);
   });
 });
 

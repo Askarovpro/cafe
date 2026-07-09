@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import {
+  CashCustody,
   DeliveryType,
   OrderStatus,
   PaymentType,
@@ -236,7 +237,7 @@ function orderFromRow(row: OrderRow): Order {
     notes: row.notes ?? undefined,
     posterOrderId: row.posterOrderId ?? undefined,
     cashCollected: row.cashCollected ?? undefined,
-    cashHandedOver: row.cashHandedOver ?? undefined,
+    cashCustody: (row.cashCustody as CashCustody | null) ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
