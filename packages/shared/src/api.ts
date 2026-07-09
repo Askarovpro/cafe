@@ -25,6 +25,13 @@ export const API = {
   createOrder: 'POST /orders',
   order: 'GET /orders/:id',
   transitionOrder: 'POST /orders/:id/transition',
+
+  // Money ledger (kassa)
+  moneyAccounts: 'GET /money/accounts',
+  moneyMovements: 'GET /money/movements', // ?limit=
+  moneySummary: 'GET /money/summary',
+  recordIncome: 'POST /money/income', // finance: cash intake (e.g. from cashier) -> CASHBOX
+  recordExpense: 'POST /money/expense', // finance: payout/expense from CASHBOX
 } as const;
 
 // Response shapes

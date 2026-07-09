@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CashCustody,
   DeliveryType,
+  MoneyAccountType,
+  MoneyMovementStatus,
+  MoneyMovementType,
   OrderAction,
   OrderStatus,
   PaymentType,
@@ -52,6 +55,7 @@ const manager: User = { id: 'u-manager', telegramId: '1001', role: Role.Manager,
 const kitchen: User = { id: 'u-kitchen', telegramId: '1002', role: Role.Kitchen, name: 'Kitchen' };
 const driver: User = { id: 'u-driver', telegramId: '1003', role: Role.Driver, name: 'Driver' };
 const finance: User = { id: 'u-finance', telegramId: '1004', role: Role.Finance, name: 'Finance' };
+const owner: User = { id: 'u-owner', telegramId: '1005', role: Role.Owner, name: 'Owner' };
 
 function seededServices(options: { devAuth?: boolean } = {}) {
   const repo = new MemoryRepository();
@@ -67,7 +71,7 @@ function seededServices(options: { devAuth?: boolean } = {}) {
   });
 
   repo.seed({
-    users: [manager, kitchen, driver, finance],
+    users: [manager, kitchen, driver, finance, owner],
     clients: [client],
     products: [productA, productB],
     clientPrices: [{ clientId: client.id, productId: productA.id, price: 32000 }],
@@ -100,6 +104,215 @@ describe('ledger', () => {
 
     expect(ledger.balance).toBe(80000);
     expect(ledger.entries).toHaveLength(4);
+  });
+});
+
+describe('money', () => {
+  it('derives balances from approved income, expense, and transfers while tracking pending separately', async () => {
+    const { services } = seededServices();
+
+    const cashbox = await services.money.getOrCreateAccount(MoneyAccountType.Cashbox);
+    const courier = await services.money.getOrCreateAccount(MoneyAccountType.Courier, driver.id);
+    const managerAccount = await services.money.getOrCreateAccount(MoneyAccountType.Manager, manager.id);
+    await services.money.createMovement({
+      type: MoneyMovementType.Income,
+      status: MoneyMovementStatus.Approved,
+      toAccountId: cashbox.id,
+      amount: 100000,
+      category: 'Kassirdan qabul',
+      createdBy: finance.id,
+    });
+    await services.money.createMovement({
+      type: MoneyMovementType.Expense,
+      status: MoneyMovementStatus.Approved,
+      fromAccountId: cashbox.id,
+      amount: 20000,
+      category: 'Xarajat',
+      createdBy: finance.id,
+    });
+    await services.money.createMovement({
+      type: MoneyMovementType.Transfer,
+      status: MoneyMovementStatus.Approved,
+      fromAccountId: cashbox.id,
+      toAccountId: courier.id,
+      amount: 15000,
+      createdBy: finance.id,
+    });
+    const pending = await services.money.createMovement({
+      type: MoneyMovementType.Transfer,
+      status: MoneyMovementStatus.Pending,
+      fromAccountId: courier.id,
+      toAccountId: managerAccount.id,
+      amount: 5000,
+      createdBy: driver.id,
+    });
+
+    let accounts = await services.money.getAccounts();
+    expect(accounts.find((account) => account.id === cashbox.id)).toMatchObject({ balance: 65000, pendingIn: 0, pendingOut: 0 });
+    expect(accounts.find((account) => account.id === courier.id)).toMatchObject({ balance: 15000, pendingIn: 0, pendingOut: 5000 });
+    expect(accounts.find((account) => account.id === managerAccount.id)).toMatchObject({ balance: 0, pendingIn: 5000, pendingOut: 0 });
+
+    await services.money.approveMovement(pending.id, finance.id);
+
+    accounts = await services.money.getAccounts();
+    expect(accounts.find((account) => account.id === courier.id)).toMatchObject({ balance: 10000, pendingOut: 0 });
+    expect(accounts.find((account) => account.id === managerAccount.id)).toMatchObject({ balance: 5000, pendingIn: 0 });
+  });
+
+  it('creates idempotent order custody movements and approves the finance handoff on confirmation', async () => {
+    const { services } = seededServices();
+    const order = await services.orders.create(
+      {
+        clientId: client.id,
+        items: [{ productId: productA.id, qty: 1 }],
+        portions: 1,
+        location: client.locations[0],
+        contactPhone: client.contactPhone,
+        paymentType: PaymentType.Cash,
+      },
+      manager,
+    );
+
+    await services.orders.transition(order.id, { action: OrderAction.StartPrep }, kitchen);
+    await services.orders.transition(order.id, { action: OrderAction.Ready }, kitchen);
+    await services.orders.transition(order.id, { action: OrderAction.Assign, deliveryType: DeliveryType.OwnDriver, driverId: driver.id }, manager);
+    await services.orders.transition(order.id, { action: OrderAction.Pickup }, driver);
+    await services.orders.transition(order.id, { action: OrderAction.Deliver }, driver);
+    await services.orders.transition(order.id, { action: OrderAction.CashToManager }, driver);
+    await services.orders.transition(order.id, { action: OrderAction.CashToFinance }, manager);
+
+    let summary = await services.money.getSummary();
+    expect(summary).toMatchObject({ cashbox: 0, drivers: 0, managers: 32000, pending: 32000 });
+
+    await services.orders.transition(order.id, { action: OrderAction.CashConfirm }, finance);
+
+    summary = await services.money.getSummary();
+    const accounts = await services.money.getAccounts();
+    const movements = await services.money.getMovements({ limit: 20 });
+    const cashbox = accounts.find((account) => account.type === MoneyAccountType.Cashbox);
+    const approvedTransfersIntoCashbox = movements.filter(
+      (movement) =>
+        movement.orderId === order.id &&
+        movement.type === MoneyMovementType.Transfer &&
+        movement.status === MoneyMovementStatus.Approved &&
+        movement.toAccountId === cashbox?.id,
+    );
+
+    expect(summary).toMatchObject({ cashbox: 32000, drivers: 0, managers: 0, pending: 0 });
+    expect(accounts.find((account) => account.type === MoneyAccountType.Courier && account.ownerUserId === driver.id)).toMatchObject({ balance: 0 });
+    expect(accounts.find((account) => account.type === MoneyAccountType.Manager && account.ownerUserId === manager.id)).toMatchObject({ balance: 0 });
+    expect(approvedTransfersIntoCashbox).toHaveLength(1);
+  });
+
+  it('records income and expenses through HTTP routes and rejects non-finance expenses', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, finance, owner] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const financeToken = services.auth.issueToken(finance);
+    const managerToken = services.auth.issueToken(manager);
+    const ownerToken = services.auth.issueToken(owner);
+
+    try {
+      const income = await app.inject({
+        method: 'POST',
+        url: '/money/income',
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { amount: 100000, category: 'Kassirdan qabul', note: 'shift close' },
+      });
+      const forbiddenExpense = await app.inject({
+        method: 'POST',
+        url: '/money/expense',
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { amount: 5000, category: 'Xarajat' },
+      });
+      const expense = await app.inject({
+        method: 'POST',
+        url: '/money/expense',
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { amount: 25000, category: 'Xarajat', counterparty: 'Bozor' },
+      });
+      const summary = await app.inject({
+        method: 'GET',
+        url: '/money/summary',
+        headers: { authorization: `Bearer ${ownerToken}` },
+      });
+
+      expect(income.statusCode).toBe(201);
+      expect(forbiddenExpense.statusCode).toBe(403);
+      expect(expense.statusCode).toBe(201);
+      expect(summary.statusCode).toBe(200);
+      expect(summary.json()).toMatchObject({ cashbox: 75000, todayIn: 100000, todayOut: 25000 });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('summarizes cashbox, driver, manager, pending, today, and by-driver totals', async () => {
+    const { services } = seededServices();
+    const cashbox = await services.money.getOrCreateAccount(MoneyAccountType.Cashbox);
+    const courier = await services.money.getOrCreateAccount(MoneyAccountType.Courier, driver.id);
+    const managerAccount = await services.money.getOrCreateAccount(MoneyAccountType.Manager, manager.id);
+
+    await services.money.createMovement({
+      type: MoneyMovementType.Income,
+      status: MoneyMovementStatus.Approved,
+      toAccountId: cashbox.id,
+      amount: 50000,
+      category: 'Kassirdan qabul',
+      createdBy: finance.id,
+    });
+    await services.money.createMovement({
+      type: MoneyMovementType.Expense,
+      status: MoneyMovementStatus.Approved,
+      fromAccountId: cashbox.id,
+      amount: 7000,
+      category: 'Xarajat',
+      createdBy: finance.id,
+    });
+    await services.money.createMovement({
+      type: MoneyMovementType.Income,
+      status: MoneyMovementStatus.Approved,
+      toAccountId: courier.id,
+      amount: 20000,
+      category: 'B2B naqd',
+      createdBy: driver.id,
+    });
+    await services.money.createMovement({
+      type: MoneyMovementType.Income,
+      status: MoneyMovementStatus.Approved,
+      toAccountId: managerAccount.id,
+      amount: 3000,
+      category: 'B2B naqd',
+      createdBy: manager.id,
+    });
+    await services.money.createMovement({
+      type: MoneyMovementType.Transfer,
+      status: MoneyMovementStatus.Pending,
+      fromAccountId: courier.id,
+      toAccountId: cashbox.id,
+      amount: 12000,
+      createdBy: driver.id,
+    });
+
+    await expect(services.money.getSummary()).resolves.toEqual({
+      cashbox: 43000,
+      drivers: 20000,
+      managers: 3000,
+      pending: 12000,
+      todayIn: 50000,
+      todayOut: 7000,
+      byDriver: [{ userId: driver.id, amount: 20000 }],
+    });
   });
 });
 
