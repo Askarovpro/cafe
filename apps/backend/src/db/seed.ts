@@ -4,6 +4,8 @@ import { Pool } from 'pg';
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
 
+// Bootstrap only: role users (for auth) + the singleton cashbox.
+// Real clients, menu (Poster sync), staff and inventory are entered/synced in-app.
 const users = [
   { id: 'u1', telegramId: '1001', role: Role.Manager, name: 'Menejer', phone: '+998900000001' },
   { id: 'u2', telegramId: '1002', role: Role.Kitchen, name: 'Oshxona', phone: '+998900000002' },
@@ -11,52 +13,6 @@ const users = [
   { id: 'f1', telegramId: '3001', role: Role.Finance, name: 'Moliyachi', phone: '+998900000004' },
   { id: 'o1', telegramId: '4001', role: Role.Owner, name: 'Egasi', phone: '+998900000005' },
   { id: 'w1', telegramId: '5001', role: Role.Warehouse, name: 'Skladchi', phone: '+998900000006' },
-];
-
-const clients = [
-  {
-    id: 'c1',
-    name: 'Oq Saroy MChJ',
-    contactName: 'Aziz aka',
-    contactPhone: '+998901112233',
-    locations: [{ label: 'Ofis', address: 'Toshkent, Chilonzor 5', lat: 41.29, lng: 69.2 }],
-  },
-  {
-    id: 'c2',
-    name: 'Bahor Cafe',
-    contactName: 'Dilnoza',
-    contactPhone: '+998907778899',
-    locations: [{ label: 'Filial 1', address: 'Toshkent, Yunusobod 12', lat: 41.36, lng: 69.28 }],
-  },
-];
-
-const products = [
-  { id: 'p1', posterId: '101', name: 'Osh (porsiya)', category: 'Milliy', basePrice: 35000, cost: 18000, unit: 'porsiya', isStopped: false },
-  { id: 'p2', posterId: '102', name: 'Manti (5 dona)', category: 'Milliy', basePrice: 30000, cost: 14000, unit: 'porsiya', isStopped: false },
-  { id: 'p3', posterId: '103', name: "Lag'mon", category: 'Milliy', basePrice: 32000, cost: 15000, unit: 'porsiya', isStopped: false },
-  { id: 'p4', posterId: '104', name: 'Somsa', category: 'Pech', basePrice: 12000, cost: 5000, unit: 'dona', isStopped: false },
-  { id: 'p5', posterId: '105', name: 'Choy (choynak)', category: 'Ichimlik', basePrice: 8000, cost: 2000, unit: 'choynak', isStopped: false },
-];
-
-const clientPrices = [
-  { clientId: 'c1', productId: 'p1', price: 32000 },
-  { clientId: 'c1', productId: 'p2', price: 28000 },
-  { clientId: 'c1', productId: 'p4', price: 11000 },
-];
-
-const staff = [
-  { id: 'staff_aziz', name: 'Aziz', position: 'Oshpaz', salary: 4000000 },
-  { id: 'staff_dilnoza', name: 'Dilnoza', position: 'Ofitsiant', salary: 2500000 },
-];
-
-const ingredients = [
-  { id: 'ingredient_gosht', name: "Go'sht", unit: 'kg', stock: 8, minStock: 15, supplier: 'Halol Meat' },
-  { id: 'ingredient_guruch', name: 'Guruch', unit: 'kg', stock: 40, minStock: 30, supplier: 'Oziq Baza' },
-  { id: 'ingredient_sabzi', name: 'Sabzi', unit: 'kg', stock: 5, minStock: 12, supplier: 'Dehqon Bozor' },
-  { id: 'ingredient_piyoz', name: 'Piyoz', unit: 'kg', stock: 3, minStock: 10, supplier: 'Dehqon Bozor' },
-  { id: 'ingredient_yog', name: "Yog'", unit: 'litr', stock: 6, minStock: 10, supplier: 'Oziq Baza' },
-  { id: 'ingredient_un', name: 'Un', unit: 'kg', stock: 25, minStock: 20, supplier: 'Oziq Baza' },
-  { id: 'ingredient_choy', name: 'Choy', unit: 'kg', stock: 2, minStock: 3, supplier: 'Halol Meat' },
 ];
 
 const pool = new Pool({ connectionString: databaseUrl });
@@ -79,83 +35,6 @@ try {
     );
   }
 
-  for (const client of clients) {
-    await pool.query(
-      `
-        insert into clients (id, name, contact_name, contact_phone, locations)
-        values ($1, $2, $3, $4, $5::jsonb)
-        on conflict (id) do update set
-          name = excluded.name,
-          contact_name = excluded.contact_name,
-          contact_phone = excluded.contact_phone,
-          locations = excluded.locations
-      `,
-      [client.id, client.name, client.contactName, client.contactPhone, JSON.stringify(client.locations)],
-    );
-  }
-
-  for (const product of products) {
-    await pool.query(
-      `
-        insert into products (id, poster_id, name, category, base_price, cost, unit, is_stopped, synced_at)
-        values ($1, $2, $3, $4, $5, $6, $7, $8, now())
-        on conflict (id) do update set
-          poster_id = excluded.poster_id,
-          name = excluded.name,
-          category = excluded.category,
-          base_price = excluded.base_price,
-          cost = excluded.cost,
-          unit = excluded.unit,
-          is_stopped = excluded.is_stopped,
-          synced_at = now()
-      `,
-      [product.id, product.posterId, product.name, product.category, product.basePrice, product.cost, product.unit, product.isStopped],
-    );
-  }
-
-  for (const price of clientPrices) {
-    await pool.query(
-      `
-        insert into client_prices (client_id, product_id, price)
-        values ($1, $2, $3)
-        on conflict (client_id, product_id) do update set price = excluded.price
-      `,
-      [price.clientId, price.productId, price.price],
-    );
-  }
-
-  for (const person of staff) {
-    await pool.query(
-      `
-        insert into staff (id, name, position, salary, active, created_at)
-        values ($1, $2, $3, $4, true, now())
-        on conflict (id) do update set
-          name = excluded.name,
-          position = excluded.position,
-          salary = excluded.salary,
-          active = true
-      `,
-      [person.id, person.name, person.position, person.salary],
-    );
-  }
-
-  for (const ingredient of ingredients) {
-    await pool.query(
-      `
-        insert into ingredients (id, name, unit, stock, min_stock, supplier, active, created_at)
-        values ($1, $2, $3, $4, $5, $6, true, now())
-        on conflict (id) do update set
-          name = excluded.name,
-          unit = excluded.unit,
-          stock = excluded.stock,
-          min_stock = excluded.min_stock,
-          supplier = excluded.supplier,
-          active = true
-      `,
-      [ingredient.id, ingredient.name, ingredient.unit, ingredient.stock, ingredient.minStock, ingredient.supplier],
-    );
-  }
-
   await pool.query(`
     insert into money_accounts (id, type, name, created_at)
     select 'money_account_cashbox', 'cashbox', 'Kassa', now()
@@ -163,7 +42,7 @@ try {
   `);
 
   await pool.query('commit');
-  console.log('seeded dev fixtures');
+  console.log('seeded users + cashbox');
 } catch (error) {
   await pool.query('rollback');
   throw error;
