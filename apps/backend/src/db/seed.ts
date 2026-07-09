@@ -42,6 +42,11 @@ const clientPrices = [
   { clientId: 'c1', productId: 'p4', price: 11000 },
 ];
 
+const staff = [
+  { id: 'staff_aziz', name: 'Aziz', position: 'Oshpaz', salary: 4000000 },
+  { id: 'staff_dilnoza', name: 'Dilnoza', position: 'Ofitsiant', salary: 2500000 },
+];
+
 const pool = new Pool({ connectionString: databaseUrl });
 
 try {
@@ -104,6 +109,21 @@ try {
         on conflict (client_id, product_id) do update set price = excluded.price
       `,
       [price.clientId, price.productId, price.price],
+    );
+  }
+
+  for (const person of staff) {
+    await pool.query(
+      `
+        insert into staff (id, name, position, salary, active, created_at)
+        values ($1, $2, $3, $4, true, now())
+        on conflict (id) do update set
+          name = excluded.name,
+          position = excluded.position,
+          salary = excluded.salary,
+          active = true
+      `,
+      [person.id, person.name, person.position, person.salary],
     );
   }
 

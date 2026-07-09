@@ -20,7 +20,7 @@ import {
 import { createDrizzle } from '../db/client.js';
 import * as schema from '../db/schema.js';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredMoneyAccount, StoredMoneyMovement } from './types.js';
+import type { AppRepository, ProductUpsert, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
 
 type Db = ReturnType<typeof createDrizzle>;
 type UserRow = typeof schema.users.$inferSelect;
@@ -30,6 +30,7 @@ type OrderRow = typeof schema.orders.$inferSelect;
 type LedgerRow = typeof schema.ledgerEntries.$inferSelect;
 type MoneyAccountRow = typeof schema.moneyAccounts.$inferSelect;
 type MoneyMovementRow = typeof schema.moneyMovements.$inferSelect;
+type StaffRow = typeof schema.staff.$inferSelect;
 
 export class PostgresRepository implements AppRepository {
   constructor(private readonly db: Db) {}
@@ -218,6 +219,35 @@ export class PostgresRepository implements AppRepository {
     return moneyMovementFromRow(row);
   }
 
+  async listStaff(): Promise<StoredStaff[]> {
+    return (await this.db.select().from(schema.staff)).map(staffFromRow);
+  }
+
+  async findStaffById(staffId: string): Promise<StoredStaff | undefined> {
+    const [row] = await this.db.select().from(schema.staff).where(eq(schema.staff.id, staffId)).limit(1);
+    return row ? staffFromRow(row) : undefined;
+  }
+
+  async createStaff(staff: StoredStaff): Promise<StoredStaff> {
+    const [row] = await this.db
+      .insert(schema.staff)
+      .values({
+        id: staff.id,
+        name: staff.name,
+        position: staff.position,
+        salary: staff.salary,
+        active: staff.active,
+        createdAt: new Date(staff.createdAt),
+      })
+      .returning();
+    return staffFromRow(row);
+  }
+
+  async updateStaff(staffId: string, patch: Partial<Omit<StoredStaff, 'id' | 'createdAt'>>): Promise<StoredStaff> {
+    const [row] = await this.db.update(schema.staff).set(patch).where(eq(schema.staff.id, staffId)).returning();
+    return staffFromRow(row);
+  }
+
   private async clientFromRow(row: ClientRow): Promise<Client> {
     const entries = await this.listLedgerEntries(row.id);
     const balance = entries.reduce((sum, entry) => sum + (entry.type === 'charge' ? entry.amount : -entry.amount), 0);
@@ -333,6 +363,7 @@ function moneyMovementToRow(movement: StoredMoneyMovement): typeof schema.moneyM
     note: movement.note,
     counterparty: movement.counterparty,
     orderId: movement.orderId,
+    staffId: movement.staffId,
     createdBy: movement.createdBy,
     approvedBy: movement.approvedBy,
     createdAt: new Date(movement.createdAt),
@@ -352,9 +383,21 @@ function moneyMovementFromRow(row: MoneyMovementRow): StoredMoneyMovement {
     note: row.note ?? undefined,
     counterparty: row.counterparty ?? undefined,
     orderId: row.orderId ?? undefined,
+    staffId: row.staffId ?? undefined,
     createdBy: row.createdBy,
     approvedBy: row.approvedBy ?? undefined,
     createdAt: row.createdAt.toISOString(),
     occurredAt: row.occurredAt.toISOString(),
+  };
+}
+
+function staffFromRow(row: StaffRow): StoredStaff {
+  return {
+    id: row.id,
+    name: row.name,
+    position: row.position,
+    salary: row.salary,
+    active: row.active,
+    createdAt: row.createdAt.toISOString(),
   };
 }

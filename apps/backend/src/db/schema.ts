@@ -91,6 +91,15 @@ export const moneyAccounts = pgTable(
   }),
 );
 
+export const staff = pgTable('staff', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  position: text('position').notNull(),
+  salary: integer('salary').notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const moneyMovements = pgTable(
   'money_movements',
   {
@@ -104,6 +113,7 @@ export const moneyMovements = pgTable(
     note: text('note'),
     counterparty: text('counterparty'),
     orderId: text('order_id').references(() => orders.id),
+    staffId: text('staff_id').references(() => staff.id),
     createdBy: text('created_by').notNull().references(() => users.id),
     approvedBy: text('approved_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
@@ -112,5 +122,6 @@ export const moneyMovements = pgTable(
   (table) => ({
     createdAt: index('money_movements_created_at_idx').on(table.createdAt),
     orderId: index('money_movements_order_id_idx').on(table.orderId),
+    staffId: index('money_movements_staff_id_idx').on(table.staffId),
   }),
 );

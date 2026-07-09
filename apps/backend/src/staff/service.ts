@@ -1,6 +1,5 @@
 import {
   MoneyMovementStatus,
-  MoneyMovementType,
   PayoutKind,
   type CreateStaff,
   type MoneyMovement,

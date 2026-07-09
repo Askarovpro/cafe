@@ -5,6 +5,8 @@ import {
   copyPricesSchema,
   createClientSchema,
   createOrderSchema,
+  createStaffSchema,
+  payStaffSchema,
   recordExpenseSchema,
   recordIncomeSchema,
   recordPaymentSchema,
@@ -12,6 +14,7 @@ import {
   telegramAuthSchema,
   transitionSchema,
   updateClientSchema,
+  updateStaffSchema,
   type Subscribe,
 } from '@b2b/shared';
 import type { FastifyInstance } from 'fastify';
@@ -150,6 +153,27 @@ export async function registerRoutes(app: FastifyInstance, services: AppServices
     const user = await requireUser(request, services);
     requireAnyRole(user, [Role.Finance]);
     return reply.code(201).send(await services.money.recordExpense(parseBody(recordExpenseSchema, request), user.id));
+  });
+
+  app.get('/staff', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance]);
+    return services.staff.list();
+  });
+  app.post('/staff', async (request, reply) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance]);
+    return reply.code(201).send(await services.staff.create(parseBody(createStaffSchema, request)));
+  });
+  app.patch('/staff/:id', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance]);
+    return services.staff.update((request.params as { id: string }).id, parseBody(updateStaffSchema, request));
+  });
+  app.post('/staff/:id/pay', async (request, reply) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance]);
+    return reply.code(201).send(await services.staff.pay((request.params as { id: string }).id, parseBody(payStaffSchema, request), user.id));
   });
 }
 
