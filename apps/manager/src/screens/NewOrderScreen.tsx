@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PaymentType } from '@b2b/shared';
-import type { Client, OfferedProduct, OfferedSet, Order } from '@b2b/shared';
+import type { Client, OfferedSet, Order } from '@b2b/shared';
 import { Money, som } from '@b2b/web-kit';
 import { api } from '../api.js';
 
@@ -8,11 +8,10 @@ const PAY_LABEL: Record<PaymentType, string> = {
   [PaymentType.Cash]: 'Naqd', [PaymentType.Transfer]: "O'tkazma", [PaymentType.Prepaid]: 'Oldindan',
 };
 
+// B2B sells menu SETS (to'plam) only — not individual products.
 export function NewOrderScreen({ onCreated }: { onCreated: (o: Order) => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState('');
-  const [products, setProducts] = useState<OfferedProduct[]>([]);
-  const [qty, setQty] = useState<Record<string, number>>({});
   const [sets, setSets] = useState<OfferedSet[]>([]);
   const [sqty, setSqty] = useState<Record<string, number>>({});
   const [portions, setPortions] = useState(1);
@@ -26,38 +25,26 @@ export function NewOrderScreen({ onCreated }: { onCreated: (o: Order) => void })
 
   const client = clients.find((c) => c.id === clientId);
   useEffect(() => {
-    setQty({}); setSqty({}); setLocIdx(0);
-    if (!clientId) { setProducts([]); setSets([]); return; }
+    setSqty({}); setLocIdx(0);
+    if (!clientId) { setSets([]); return; }
     setPhone(client?.contactPhone ?? '');
-    api.products(clientId).then((p) => setProducts(p.filter((x) => x.clientPrice !== null && !x.isStopped))).catch(() => {});
     api.clientSets(clientId).then((s) => setSets(s.filter((x) => x.clientPrice !== null && x.active))).catch(() => {});
   }, [clientId]);
 
   const items = useMemo(
-    () => products.filter((p) => (qty[p.id] ?? 0) > 0).map((p) => ({ product: p, qty: qty[p.id]! })),
-    [products, qty],
-  );
-  const setItems = useMemo(
     () => sets.filter((s) => (sqty[s.id] ?? 0) > 0).map((s) => ({ set: s, qty: sqty[s.id]! })),
     [sets, sqty],
   );
-  const total = items.reduce((s, it) => s + (it.product.clientPrice ?? 0) * it.qty, 0)
-    + setItems.reduce((s, it) => s + (it.set.clientPrice ?? 0) * it.qty, 0);
-  const lineCount = items.length + setItems.length;
-
-  const bump = (id: string, d: number) => setQty((q) => ({ ...q, [id]: Math.max(0, (q[id] ?? 0) + d) }));
-  const sbump = (id: string, d: number) => setSqty((q) => ({ ...q, [id]: Math.max(0, (q[id] ?? 0) + d) }));
+  const total = items.reduce((s, it) => s + (it.set.clientPrice ?? 0) * it.qty, 0);
+  const bump = (id: string, d: number) => setSqty((q) => ({ ...q, [id]: Math.max(0, (q[id] ?? 0) + d) }));
 
   const submit = async () => {
-    if (!client || lineCount === 0) return;
+    if (!client || items.length === 0) return;
     setBusy(true);
     try {
       const order = await api.createOrder({
         clientId: client.id,
-        items: [
-          ...items.map((it) => ({ productId: it.product.id, qty: it.qty })),
-          ...setItems.map((it) => ({ setId: it.set.id, qty: it.qty })),
-        ],
+        items: items.map((it) => ({ setId: it.set.id, qty: it.qty })),
         portions,
         location: client.locations[locIdx],
         contactPhone: phone,
@@ -84,35 +71,19 @@ export function NewOrderScreen({ onCreated }: { onCreated: (o: Order) => void })
       {client && (
         <>
           <div className="card">
-            <h3>Mahsulotlar</h3>
-            {products.length === 0 && <div className="muted">Bu mijozga narx belgilanmagan. «Mijozlar» → narx qo'ying.</div>}
-            {products.map((p) => (
-              <div className="docket__row" key={p.id} style={{ alignItems: 'center', padding: '8px 0' }}>
-                <span>{p.name}<br /><span className="muted mono">{som(p.clientPrice!)} so'm</span></span>
+            <h3>To'plamlar</h3>
+            {sets.length === 0 && <div className="muted">Bu mijozga to'plam narxi belgilanmagan. «Mijozlar» → mijoz → narx qo'ying.</div>}
+            {sets.map((s) => (
+              <div className="docket__row" key={s.id} style={{ alignItems: 'center', padding: '10px 0' }}>
+                <span>{s.name}<br /><span className="muted mono">{som(s.clientPrice!)} so'm · {s.components.map((c) => `${c.qty}×${c.name}`).join(', ')}</span></span>
                 <span className="qty">
-                  <button onClick={() => bump(p.id, -1)} aria-label="kamaytir">−</button>
-                  <span className="n">{qty[p.id] ?? 0}</span>
-                  <button onClick={() => bump(p.id, +1)} aria-label="ko'paytir">+</button>
+                  <button onClick={() => bump(s.id, -1)} aria-label="kamaytir">−</button>
+                  <span className="n">{sqty[s.id] ?? 0}</span>
+                  <button onClick={() => bump(s.id, +1)} aria-label="ko'paytir">+</button>
                 </span>
               </div>
             ))}
           </div>
-
-          {sets.length > 0 && (
-            <div className="card">
-              <h3>To'plamlar</h3>
-              {sets.map((s) => (
-                <div className="docket__row" key={s.id} style={{ alignItems: 'center', padding: '8px 0' }}>
-                  <span>{s.name}<br /><span className="muted mono">{som(s.clientPrice!)} so'm · {s.components.map((c) => `${c.qty}×${c.name}`).join(', ')}</span></span>
-                  <span className="qty">
-                    <button onClick={() => sbump(s.id, -1)} aria-label="kamaytir">−</button>
-                    <span className="n">{sqty[s.id] ?? 0}</span>
-                    <button onClick={() => sbump(s.id, +1)} aria-label="ko'paytir">+</button>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
 
           <div className="row2">
             <label>Porsiya
@@ -137,8 +108,8 @@ export function NewOrderScreen({ onCreated }: { onCreated: (o: Order) => void })
             <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </label>
 
-          <button className="btn btn--block" disabled={busy || lineCount === 0 || !phone} onClick={submit}>
-            {lineCount === 0 ? 'Mahsulot yoki to\'plam tanlang' : <>Zakaz yaratish · <Money value={total} /> so'm</>}
+          <button className="btn btn--block" disabled={busy || items.length === 0 || !phone} onClick={submit}>
+            {items.length === 0 ? "To'plam tanlang" : <>Zakaz yaratish · <Money value={total} /> so'm</>}
           </button>
         </>
       )}
