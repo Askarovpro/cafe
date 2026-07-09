@@ -270,6 +270,7 @@ export class PostgresRepository implements AppRepository {
         stock: ingredient.stock,
         minStock: ingredient.minStock,
         supplier: ingredient.supplier,
+        price: ingredient.price,
         active: ingredient.active,
         createdAt: new Date(ingredient.createdAt),
       })
@@ -444,6 +445,7 @@ function ingredientFromRow(row: IngredientRow): StoredIngredient {
     stock: row.stock,
     minStock: row.minStock,
     supplier: row.supplier,
+    price: row.price ?? undefined,
     active: row.active,
     createdAt: row.createdAt.toISOString(),
   };

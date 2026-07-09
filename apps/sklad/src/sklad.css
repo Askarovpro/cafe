@@ -45,13 +45,16 @@ label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); font-weig
 /* Bozorlik */
 .supplier { margin-bottom: 16px; }
 .supplier > h3 { font-size: 14px; font-weight: 750; margin: 0 2px 8px; display: flex; align-items: center; gap: 8px; }
-.shoprow { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); }
+.shoprow { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); }
 .shoprow + .shoprow { margin-top: 8px; }
+.shoprow__top { display: flex; align-items: center; gap: 10px; }
+.shoprow__ctl { display: flex; align-items: center; gap: 8px; }
 .shoprow .nm { font-weight: 650; }
-.shoprow .need { margin-left: auto; font-family: var(--font-mono); font-weight: 800; color: var(--accent-deep); }
-.shoprow { gap: 8px; }
+.shoprow__top .meta { margin-left: 2px; }
+.shoprow__top .rm { margin-left: auto; }
 .shoprow .buy { flex: none; }
-.btn.tiny { padding: 9px 12px; font-size: 13px; }
+.narx { flex: 1; min-width: 0; }
+.btn.tiny { padding: 10px 14px; font-size: 13px; }
 .qtybox { display: flex; align-items: center; gap: 3px; flex: none; }
 .qtybox .pm { width: 30px; height: 30px; border-radius: 8px; border: 0; background: var(--surface-2); font-size: 18px; line-height: 1; cursor: pointer; color: var(--ink); }
 .qtybox input { width: 50px; text-align: center; padding: 6px 4px; font-family: var(--font-mono); font-weight: 700; }

@@ -10,6 +10,7 @@ export interface Ingredient {
   stock: number; // current quantity
   minStock: number; // par level — reorder when stock falls below this
   supplier: string; // grouping for the shopping list
+  price?: number; // last purchase unit cost (tannarx) — total paid / qty
   active: boolean;
   isLow: boolean; // derived: stock < minStock
 }
@@ -28,12 +29,20 @@ export const updateIngredientSchema = z.object({
   supplier: z.string().min(1).optional(),
   active: z.boolean().optional(),
 });
-// Adjust stock: positive delta = kirim (received), negative = chiqim (used/write-off).
+// Adjust stock: positive delta = kirim (received), negative = chiqim (used/write-off). No money.
 export const adjustStockSchema = z.object({
   delta: z.number(),
   reason: z.string().optional(),
 });
 
+// Purchase (bozorlik): received `qty`, paid `price` (total). Adds stock, records a cashbox
+// expense (category "Bozorlik"), and stores the unit cost (price / qty) as the ingredient price.
+export const purchaseSchema = z.object({
+  qty: z.number().positive(),
+  price: z.number().nonnegative(),
+});
+
 export type CreateIngredient = z.infer<typeof createIngredientSchema>;
 export type UpdateIngredient = z.infer<typeof updateIngredientSchema>;
 export type AdjustStock = z.infer<typeof adjustStockSchema>;
+export type Purchase = z.infer<typeof purchaseSchema>;

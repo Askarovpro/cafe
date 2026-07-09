@@ -604,6 +604,142 @@ describe('inventory', () => {
     }
   });
 
+  it('purchases ingredients by increasing stock, setting unit cost, and recording a cashbox expense', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [warehouse, finance] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const warehouseToken = services.auth.issueToken(warehouse);
+
+    try {
+      await services.money.recordIncome({ amount: 100000, category: 'Kassirdan qabul' }, finance.id);
+      const cashbox = await services.money.getOrCreateAccount(MoneyAccountType.Cashbox);
+      const created = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: 'Yog', unit: 'litr', stock: 3, minStock: 10, supplier: 'Oziq Baza' },
+      });
+      const ingredient = created.json();
+
+      const purchased = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/purchase`,
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { qty: 7, price: 35000 },
+      });
+      const accounts = await services.money.getAccounts();
+      const movements = await services.money.getMovements({ limit: 10 });
+      const expense = movements.find((movement) => movement.category === 'Bozorlik');
+
+      expect(purchased.statusCode).toBe(200);
+      expect(purchased.json()).toMatchObject({ id: ingredient.id, stock: 10, price: 5000 });
+      expect(expense).toMatchObject({
+        type: MoneyMovementType.Expense,
+        status: MoneyMovementStatus.Approved,
+        fromAccountId: cashbox.id,
+        amount: 35000,
+        category: 'Bozorlik',
+        counterparty: 'Oziq Baza',
+        note: 'Yog',
+        createdBy: warehouse.id,
+        approvedBy: warehouse.id,
+      });
+      expect(accounts.find((account) => account.id === cashbox.id)).toMatchObject({ balance: 65000 });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('requires warehouse role for ingredient purchases', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, warehouse] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const managerToken = services.auth.issueToken(manager);
+    const warehouseToken = services.auth.issueToken(warehouse);
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: 'Kartoshka', unit: 'kg', stock: 5, minStock: 20, supplier: 'Dehqon Bozor' },
+      });
+      const ingredient = created.json();
+
+      const forbiddenPurchase = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/purchase`,
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { qty: 7, price: 35000 },
+      });
+
+      expect(forbiddenPurchase.statusCode).toBe(403);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('purchases ingredients with zero price without recording a cashbox expense', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [warehouse] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const warehouseToken = services.auth.issueToken(warehouse);
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: 'Tuz', unit: 'kg', stock: 2, minStock: 5, supplier: 'Oziq Baza' },
+      });
+      const ingredient = created.json();
+
+      const purchased = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/purchase`,
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { qty: 3, price: 0 },
+      });
+      const movements = await services.money.getMovements({ limit: 10 });
+
+      expect(purchased.statusCode).toBe(200);
+      expect(purchased.json()).toMatchObject({ id: ingredient.id, stock: 5, price: 0 });
+      expect(movements.filter((movement) => movement.category === 'Bozorlik')).toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('requires warehouse role for writes while allowing manager and owner reads', async () => {
     const repo = new MemoryRepository();
     repo.seed({ users: [manager, owner, warehouse] });

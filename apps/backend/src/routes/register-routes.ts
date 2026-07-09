@@ -9,6 +9,7 @@ import {
   createOrderSchema,
   createStaffSchema,
   payStaffSchema,
+  purchaseSchema,
   recordExpenseSchema,
   recordIncomeSchema,
   recordPaymentSchema,
@@ -199,6 +200,11 @@ export async function registerRoutes(app: FastifyInstance, services: AppServices
     const user = await requireUser(request, services);
     requireAnyRole(user, [Role.Warehouse]);
     return services.inventory.adjust((request.params as { id: string }).id, parseBody(adjustStockSchema, request));
+  });
+  app.post('/ingredients/:id/purchase', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Warehouse]);
+    return services.inventory.purchase((request.params as { id: string }).id, parseBody(purchaseSchema, request), user.id);
   });
 }
 

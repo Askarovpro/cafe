@@ -107,6 +107,7 @@ export const ingredients = pgTable('ingredients', {
   stock: numeric('stock', { mode: 'number' }).notNull(),
   minStock: numeric('min_stock', { mode: 'number' }).notNull(),
   supplier: text('supplier').notNull(),
+  price: numeric('price', { mode: 'number' }),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

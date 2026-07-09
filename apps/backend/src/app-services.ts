@@ -31,7 +31,7 @@ export function createAppServices(input: {
   return {
     auth: new AuthService(input.repo, input.botToken, input.jwtSecret, input.devAuth ?? false),
     clients: new ClientsService(input.repo),
-    inventory: new InventoryService(input.repo),
+    inventory: new InventoryService(input.repo, money),
     ledger,
     money,
     orders: new OrdersService(input.repo, ledger, money, input.poster, notifier, hub),

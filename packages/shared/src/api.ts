@@ -43,7 +43,8 @@ export const API = {
   ingredients: 'GET /ingredients',
   createIngredient: 'POST /ingredients',
   updateIngredient: 'PATCH /ingredients/:id',
-  adjustStock: 'POST /ingredients/:id/adjust',
+  adjustStock: 'POST /ingredients/:id/adjust', // stock correction, no money
+  purchaseIngredient: 'POST /ingredients/:id/purchase', // bozorlik: +stock + cashbox expense + unit cost
 } as const;
 
 // Response shapes
