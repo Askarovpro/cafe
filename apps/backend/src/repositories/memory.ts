@@ -1,6 +1,14 @@
-import { OrderStatus, type Client, type ClientPrice, type LedgerEntry, type Order, type Product, type User } from '@b2b/shared';
+import {
+  OrderStatus,
+  type Client,
+  type ClientPrice,
+  type LedgerEntry,
+  type Order,
+  type Product,
+  type User,
+} from '@b2b/shared';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredClientPrice } from './types.js';
+import type { AppRepository, ProductUpsert, StoredClientPrice, StoredMoneyAccount, StoredMoneyMovement } from './types.js';
 
 type Seed = {
   users?: User[];
@@ -9,6 +17,8 @@ type Seed = {
   clientPrices?: StoredClientPrice[];
   orders?: Order[];
   ledgerEntries?: LedgerEntry[];
+  moneyAccounts?: StoredMoneyAccount[];
+  moneyMovements?: StoredMoneyMovement[];
 };
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -20,6 +30,8 @@ export class MemoryRepository implements AppRepository {
   private clientPrices = new Map<string, StoredClientPrice>();
   private orders = new Map<string, Order>();
   private ledger = new Map<string, LedgerEntry>();
+  private moneyAccounts = new Map<string, StoredMoneyAccount>();
+  private moneyMovements = new Map<string, StoredMoneyMovement>();
 
   seed(seed: Seed): void {
     for (const user of seed.users ?? []) this.users.set(user.id, clone(user));
@@ -31,6 +43,8 @@ export class MemoryRepository implements AppRepository {
     for (const price of seed.clientPrices ?? []) this.clientPrices.set(this.priceKey(price.clientId, price.productId), clone(price));
     for (const order of seed.orders ?? []) this.orders.set(order.id, clone(order));
     for (const entry of seed.ledgerEntries ?? []) this.ledger.set(entry.id, clone(entry));
+    for (const account of seed.moneyAccounts ?? []) this.moneyAccounts.set(account.id, clone(account));
+    for (const movement of seed.moneyMovements ?? []) this.moneyMovements.set(movement.id, clone(movement));
   }
 
   async findUserByTelegramId(telegramId: string): Promise<User | undefined> {
@@ -143,6 +157,45 @@ export class MemoryRepository implements AppRepository {
       .filter((order) => !query.driverId || order.driverId === query.driverId)
       .filter((order) => !query.activeOnly || ![OrderStatus.Closed, OrderStatus.Cancelled].includes(order.status))
       .map(clone);
+  }
+
+  async listMoneyAccounts(): Promise<StoredMoneyAccount[]> {
+    return [...this.moneyAccounts.values()].map(clone);
+  }
+
+  async findMoneyAccount(query: { type: StoredMoneyAccount['type']; ownerUserId?: string }): Promise<StoredMoneyAccount | undefined> {
+    return clone(
+      [...this.moneyAccounts.values()].find(
+        (account) => account.type === query.type && (query.ownerUserId == null || account.ownerUserId === query.ownerUserId),
+      ),
+    );
+  }
+
+  async createMoneyAccount(account: StoredMoneyAccount): Promise<StoredMoneyAccount> {
+    this.moneyAccounts.set(account.id, clone(account));
+    return clone(account);
+  }
+
+  async listMoneyMovements(query: { orderId?: string; limit?: number } = {}): Promise<StoredMoneyMovement[]> {
+    return [...this.moneyMovements.values()]
+      .filter((movement) => !query.orderId || movement.orderId === query.orderId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, query.limit)
+      .map(clone);
+  }
+
+  async findMoneyMovementById(movementId: string): Promise<StoredMoneyMovement | undefined> {
+    return clone(this.moneyMovements.get(movementId));
+  }
+
+  async createMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement> {
+    this.moneyMovements.set(movement.id, clone(movement));
+    return clone(movement);
+  }
+
+  async updateMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement> {
+    this.moneyMovements.set(movement.id, clone(movement));
+    return clone(movement);
   }
 
   private withBalance(client: Omit<Client, 'balance'>): Client {

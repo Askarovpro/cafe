@@ -5,6 +5,8 @@ import {
   copyPricesSchema,
   createClientSchema,
   createOrderSchema,
+  recordExpenseSchema,
+  recordIncomeSchema,
   recordPaymentSchema,
   setPriceSchema,
   telegramAuthSchema,
@@ -120,6 +122,34 @@ export async function registerRoutes(app: FastifyInstance, services: AppServices
   app.post('/orders/:id/transition', async (request) => {
     const user = await requireUser(request, services);
     return services.orders.transition((request.params as { id: string }).id, parseBody(transitionSchema, request), user);
+  });
+
+  app.get('/money/accounts', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance, Role.Owner]);
+    return services.money.getAccounts();
+  });
+  app.get('/money/movements', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance, Role.Owner]);
+    const query = request.query as { limit?: string };
+    const limit = query.limit ? Number(query.limit) : undefined;
+    return services.money.getMovements({ limit: Number.isFinite(limit) ? limit : undefined });
+  });
+  app.get('/money/summary', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance, Role.Owner]);
+    return services.money.getSummary();
+  });
+  app.post('/money/income', async (request, reply) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance]);
+    return reply.code(201).send(await services.money.recordIncome(parseBody(recordIncomeSchema, request), user.id));
+  });
+  app.post('/money/expense', async (request, reply) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Finance]);
+    return reply.code(201).send(await services.money.recordExpense(parseBody(recordExpenseSchema, request), user.id));
   });
 }
 

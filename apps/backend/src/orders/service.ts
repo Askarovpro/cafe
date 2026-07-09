@@ -17,6 +17,7 @@ import { yandexDeeplink, type Notifier } from '../delivery/notifier.js';
 import { badRequest, conflict, forbidden, notFound } from '../errors.js';
 import { id, isoNow } from '../ids.js';
 import type { LedgerService } from '../ledger/service.js';
+import type { MoneyService } from '../money/service.js';
 import type { PosterClient } from '../poster-sync/poster-client.js';
 import type { AppRepository } from '../repositories/types.js';
 import type { RealtimeHub } from '../realtime/hub.js';
@@ -25,6 +26,7 @@ export class OrdersService {
   constructor(
     private readonly repo: AppRepository,
     private readonly ledger: LedgerService,
+    private readonly money: MoneyService,
     private readonly poster: PosterClient,
     private readonly notifier: Notifier,
     private readonly hub: RealtimeHub,
@@ -94,10 +96,22 @@ export class OrdersService {
     const updated: Order = { ...order, status: rule.to, updatedAt: isoNow() };
 
     if (input.action === OrderAction.Assign) await this.applyAssign(updated, input);
-    if (input.action === OrderAction.Deliver) updated.cashCollected = input.cashCollected ?? updated.paymentType === PaymentType.Cash;
-    if (input.action === OrderAction.CashToManager) updated.cashCustody = CashCustody.Manager;
-    if (input.action === OrderAction.CashToFinance) updated.cashCustody = CashCustody.Finance;
-    if (input.action === OrderAction.CashConfirm) await this.ensureClosePayment(updated, user);
+    if (input.action === OrderAction.Deliver) {
+      updated.cashCollected = input.cashCollected ?? updated.paymentType === PaymentType.Cash;
+      await this.money.recordOrderCashDelivery(updated, user.id);
+    }
+    if (input.action === OrderAction.CashToManager) {
+      updated.cashCustody = CashCustody.Manager;
+      await this.money.recordOrderCashToManager(updated, user.id);
+    }
+    if (input.action === OrderAction.CashToFinance) {
+      updated.cashCustody = CashCustody.Finance;
+      await this.money.recordOrderCashToFinance(updated, user.id);
+    }
+    if (input.action === OrderAction.CashConfirm) {
+      await this.money.approveOrderCashboxTransfer(updated, user.id);
+      await this.ensureClosePayment(updated, user);
+    }
     if (input.action === OrderAction.Ready) await this.ensureReadySideEffects(updated, user);
     if (input.action === OrderAction.Close) await this.ensureClosePayment(updated, user);
     if (input.action === OrderAction.Cancel) await this.ensureCancelReversal(order, updated, user);

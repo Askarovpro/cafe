@@ -107,6 +107,12 @@ try {
     );
   }
 
+  await pool.query(`
+    insert into money_accounts (id, type, name, created_at)
+    select 'money_account_cashbox', 'cashbox', 'Kassa', now()
+    where not exists (select 1 from money_accounts where type = 'cashbox')
+  `);
+
   await pool.query('commit');
   console.log('seeded dev fixtures');
 } catch (error) {

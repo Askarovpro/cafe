@@ -1,4 +1,5 @@
-import { boolean, jsonb, numeric, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
@@ -74,3 +75,42 @@ export const ledgerEntries = pgTable('ledger_entries', {
   createdBy: text('created_by').notNull().references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 });
+
+export const moneyAccounts = pgTable(
+  'money_accounts',
+  {
+    id: text('id').primaryKey(),
+    type: text('type').notNull(),
+    name: text('name').notNull(),
+    ownerUserId: text('owner_user_id').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    cashboxSingleton: uniqueIndex('money_accounts_cashbox_singleton').on(table.type).where(sql`type = 'cashbox'`),
+    typeOwner: uniqueIndex('money_accounts_type_owner_unique').on(table.type, table.ownerUserId).where(sql`owner_user_id IS NOT NULL`),
+  }),
+);
+
+export const moneyMovements = pgTable(
+  'money_movements',
+  {
+    id: text('id').primaryKey(),
+    type: text('type').notNull(),
+    status: text('status').notNull(),
+    fromAccountId: text('from_account_id').references(() => moneyAccounts.id),
+    toAccountId: text('to_account_id').references(() => moneyAccounts.id),
+    amount: integer('amount').notNull(),
+    category: text('category'),
+    note: text('note'),
+    counterparty: text('counterparty'),
+    orderId: text('order_id').references(() => orders.id),
+    createdBy: text('created_by').notNull().references(() => users.id),
+    approvedBy: text('approved_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    createdAt: index('money_movements_created_at_idx').on(table.createdAt),
+    orderId: index('money_movements_order_id_idx').on(table.orderId),
+  }),
+);

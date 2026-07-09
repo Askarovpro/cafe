@@ -2,6 +2,9 @@ import { eq } from 'drizzle-orm';
 import {
   CashCustody,
   DeliveryType,
+  MoneyAccountType,
+  MoneyMovementStatus,
+  MoneyMovementType,
   OrderStatus,
   PaymentType,
   Role,
@@ -17,7 +20,7 @@ import {
 import { createDrizzle } from '../db/client.js';
 import * as schema from '../db/schema.js';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert } from './types.js';
+import type { AppRepository, ProductUpsert, StoredMoneyAccount, StoredMoneyMovement } from './types.js';
 
 type Db = ReturnType<typeof createDrizzle>;
 type UserRow = typeof schema.users.$inferSelect;
@@ -25,6 +28,8 @@ type ClientRow = typeof schema.clients.$inferSelect;
 type ProductRow = typeof schema.products.$inferSelect;
 type OrderRow = typeof schema.orders.$inferSelect;
 type LedgerRow = typeof schema.ledgerEntries.$inferSelect;
+type MoneyAccountRow = typeof schema.moneyAccounts.$inferSelect;
+type MoneyMovementRow = typeof schema.moneyMovements.$inferSelect;
 
 export class PostgresRepository implements AppRepository {
   constructor(private readonly db: Db) {}
@@ -164,6 +169,55 @@ export class PostgresRepository implements AppRepository {
       .filter((order) => !query.activeOnly || ![OrderStatus.Closed, OrderStatus.Cancelled].includes(order.status));
   }
 
+  async listMoneyAccounts(): Promise<StoredMoneyAccount[]> {
+    return (await this.db.select().from(schema.moneyAccounts)).map(moneyAccountFromRow);
+  }
+
+  async findMoneyAccount(query: { type: StoredMoneyAccount['type']; ownerUserId?: string }): Promise<StoredMoneyAccount | undefined> {
+    const rows = (await this.db.select().from(schema.moneyAccounts).where(eq(schema.moneyAccounts.type, query.type))).map(moneyAccountFromRow);
+    return rows.find((account) => query.ownerUserId == null || account.ownerUserId === query.ownerUserId);
+  }
+
+  async createMoneyAccount(account: StoredMoneyAccount): Promise<StoredMoneyAccount> {
+    const [row] = await this.db
+      .insert(schema.moneyAccounts)
+      .values({
+        id: account.id,
+        type: account.type,
+        name: account.name,
+        ownerUserId: account.ownerUserId,
+        createdAt: new Date(account.createdAt),
+      })
+      .returning();
+    return moneyAccountFromRow(row);
+  }
+
+  async listMoneyMovements(query: { orderId?: string; limit?: number } = {}): Promise<StoredMoneyMovement[]> {
+    let rows = (await this.db.select().from(schema.moneyMovements)).map(moneyMovementFromRow);
+    if (query.orderId) rows = rows.filter((movement) => movement.orderId === query.orderId);
+    rows = rows.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return typeof query.limit === 'number' ? rows.slice(0, query.limit) : rows;
+  }
+
+  async findMoneyMovementById(movementId: string): Promise<StoredMoneyMovement | undefined> {
+    const [row] = await this.db.select().from(schema.moneyMovements).where(eq(schema.moneyMovements.id, movementId)).limit(1);
+    return row ? moneyMovementFromRow(row) : undefined;
+  }
+
+  async createMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement> {
+    const [row] = await this.db.insert(schema.moneyMovements).values(moneyMovementToRow(movement)).returning();
+    return moneyMovementFromRow(row);
+  }
+
+  async updateMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement> {
+    const [row] = await this.db
+      .update(schema.moneyMovements)
+      .set(moneyMovementToRow(movement))
+      .where(eq(schema.moneyMovements.id, movement.id))
+      .returning();
+    return moneyMovementFromRow(row);
+  }
+
   private async clientFromRow(row: ClientRow): Promise<Client> {
     const entries = await this.listLedgerEntries(row.id);
     const balance = entries.reduce((sum, entry) => sum + (entry.type === 'charge' ? entry.amount : -entry.amount), 0);
@@ -254,5 +308,53 @@ function ledgerFromRow(row: LedgerRow): LedgerEntry {
     note: row.note ?? undefined,
     createdBy: row.createdBy,
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function moneyAccountFromRow(row: MoneyAccountRow): StoredMoneyAccount {
+  return {
+    id: row.id,
+    type: row.type as MoneyAccountType,
+    name: row.name,
+    ownerUserId: row.ownerUserId ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function moneyMovementToRow(movement: StoredMoneyMovement): typeof schema.moneyMovements.$inferInsert {
+  return {
+    id: movement.id,
+    type: movement.type,
+    status: movement.status,
+    fromAccountId: movement.fromAccountId,
+    toAccountId: movement.toAccountId,
+    amount: movement.amount,
+    category: movement.category,
+    note: movement.note,
+    counterparty: movement.counterparty,
+    orderId: movement.orderId,
+    createdBy: movement.createdBy,
+    approvedBy: movement.approvedBy,
+    createdAt: new Date(movement.createdAt),
+    occurredAt: new Date(movement.occurredAt),
+  };
+}
+
+function moneyMovementFromRow(row: MoneyMovementRow): StoredMoneyMovement {
+  return {
+    id: row.id,
+    type: row.type as MoneyMovementType,
+    status: row.status as MoneyMovementStatus,
+    fromAccountId: row.fromAccountId ?? undefined,
+    toAccountId: row.toAccountId ?? undefined,
+    amount: row.amount,
+    category: row.category ?? undefined,
+    note: row.note ?? undefined,
+    counterparty: row.counterparty ?? undefined,
+    orderId: row.orderId ?? undefined,
+    createdBy: row.createdBy,
+    approvedBy: row.approvedBy ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    occurredAt: row.occurredAt.toISOString(),
   };
 }

@@ -1,8 +1,14 @@
-import type { Client, ClientLocation, ClientPrice, LedgerEntry, Order, Product, User } from '@b2b/shared';
+import type { Client, ClientLocation, ClientPrice, LedgerEntry, MoneyAccount, MoneyMovement, Order, Product, User } from '@b2b/shared';
 
 export interface StoredClientPrice extends ClientPrice {
   clientId: string;
 }
+
+export interface StoredMoneyAccount extends Omit<MoneyAccount, 'balance' | 'pendingIn' | 'pendingOut'> {
+  createdAt: string;
+}
+
+export interface StoredMoneyMovement extends MoneyMovement {}
 
 export interface ProductUpsert {
   posterId: string;
@@ -41,6 +47,15 @@ export interface AppRepository {
   findOrderById(id: string): Promise<Order | undefined>;
   updateOrder(order: Order): Promise<Order>;
   listOrders(query?: { status?: string; createdBy?: string; driverId?: string; activeOnly?: boolean }): Promise<Order[]>;
+
+  listMoneyAccounts(): Promise<StoredMoneyAccount[]>;
+  findMoneyAccount(query: { type: StoredMoneyAccount['type']; ownerUserId?: string }): Promise<StoredMoneyAccount | undefined>;
+  createMoneyAccount(account: StoredMoneyAccount): Promise<StoredMoneyAccount>;
+
+  listMoneyMovements(query?: { orderId?: string; limit?: number }): Promise<StoredMoneyMovement[]>;
+  findMoneyMovementById(id: string): Promise<StoredMoneyMovement | undefined>;
+  createMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement>;
+  updateMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement>;
 }
 
 export type NewClientInput = {
