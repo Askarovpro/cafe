@@ -1,0 +1,67 @@
+.wrap { max-width: 520px; margin: 0 auto; padding: 12px 14px 96px; min-height: 100vh; }
+
+.appbar {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--pill); color: var(--pill-ink);
+  border-radius: 20px; padding: 12px 14px; margin-bottom: 16px;
+}
+.appbar .mark { width: 38px; height: 38px; border-radius: 12px; flex: none; background: var(--accent); color: var(--ink-on-accent); display: grid; place-items: center; }
+.appbar .title { font-size: 18px; font-weight: 750; letter-spacing: -0.02em; }
+.appbar .sub { font-size: 12px; color: #b9b9c0; margin-top: -2px; }
+.appbar .warn { margin-left: auto; font-family: var(--font-mono); font-weight: 700; font-size: 13px; background: color-mix(in srgb, var(--st-cancelled) 85%, #000); color: #fff; padding: 7px 12px; border-radius: 999px; }
+.appbar .ok { margin-left: auto; font-size: 12px; color: #b9b9c0; }
+
+.sectiontitle { font-size: 13px; color: var(--muted); font-weight: 650; margin: 4px 2px 10px; }
+.list { display: grid; gap: 10px; }
+
+.ing { background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); }
+.ing__row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; cursor: pointer; }
+.ing .nm { font-weight: 650; }
+.ing .meta { color: var(--muted); font-size: 13px; font-family: var(--font-mono); }
+.ing .qty { margin-left: auto; text-align: right; }
+.ing .qty .big { font-family: var(--font-mono); font-weight: 800; font-size: 17px; }
+.ing .qty .big.low { color: var(--st-cancelled); }
+.ing .badge { font-size: 11px; font-weight: 700; color: #b42318; background: #fdece9; padding: 2px 8px; border-radius: 999px; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.dot--low { background: var(--st-cancelled); }
+.dot--ok { background: var(--st-ready); }
+
+.adjust { padding: 0 16px 14px; display: grid; gap: 10px; }
+.adjust .stepper { display: flex; align-items: center; gap: 10px; }
+.adjust .stepper input { flex: 1; text-align: center; }
+.adjust button.pm { width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--surface-2); color: var(--ink); font-size: 22px; cursor: pointer; }
+
+input {
+  font: inherit; padding: 12px 13px; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%;
+}
+input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: var(--accent); }
+label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.split { display: flex; gap: 8px; } .split > * { flex: 1; }
+.card { background: var(--surface); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow-sm); }
+.card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
+
+/* Bozorlik */
+.supplier { margin-bottom: 16px; }
+.supplier > h3 { font-size: 14px; font-weight: 750; margin: 0 2px 8px; display: flex; align-items: center; gap: 8px; }
+.shoprow { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); }
+.shoprow + .shoprow { margin-top: 8px; }
+.shoprow .nm { font-weight: 650; }
+.shoprow .need { margin-left: auto; font-family: var(--font-mono); font-weight: 800; color: var(--accent-deep); }
+.shoprow .buy { flex: none; }
+.btn.tiny { padding: 9px 12px; font-size: 13px; }
+
+.empty { text-align: center; color: var(--muted); padding: 64px 0; }
+.empty .big { width: 72px; height: 72px; border-radius: 22px; margin: 0 auto 14px; background: var(--surface); box-shadow: var(--shadow-sm); display: grid; place-items: center; color: var(--st-ready); }
+.muted { color: var(--muted); font-size: 13px; }
+
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0; max-width: 520px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+}
+.nav button { appearance: none; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: 14px; font: inherit; font-weight: 650; font-size: 14px; color: var(--muted); position: relative; }
+.nav button[data-active='true'] { background: var(--pill); color: var(--pill-ink); }
+.nav .badge { position: absolute; top: 2px; right: 50%; transform: translateX(26px); background: var(--st-cancelled); color: #fff; border-radius: 999px; font-size: 10px; font-weight: 700; padding: 0 5px; font-family: var(--font-mono); }

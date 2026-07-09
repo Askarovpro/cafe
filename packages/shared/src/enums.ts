@@ -5,6 +5,7 @@ export enum Role {
   Kitchen = 'kitchen',
   Driver = 'driver',
   Finance = 'finance', // moliyachi — reconciles cash from managers into the till
+  Warehouse = 'warehouse', // skladchi — inventory + procurement
   Owner = 'owner',
 }
 

@@ -2,6 +2,7 @@ import {
   OrderStatus,
   type Client,
   type ClientPrice,
+  type Ingredient,
   type LedgerEntry,
   type Order,
   type Product,
@@ -9,7 +10,7 @@ import {
   type User,
 } from '@b2b/shared';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredClientPrice, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
+import type { AppRepository, ProductUpsert, StoredClientPrice, StoredIngredient, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
 
 type Seed = {
   users?: User[];
@@ -21,6 +22,7 @@ type Seed = {
   moneyAccounts?: StoredMoneyAccount[];
   moneyMovements?: StoredMoneyMovement[];
   staff?: Staff[];
+  ingredients?: Ingredient[];
 };
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -35,6 +37,7 @@ export class MemoryRepository implements AppRepository {
   private moneyAccounts = new Map<string, StoredMoneyAccount>();
   private moneyMovements = new Map<string, StoredMoneyMovement>();
   private staff = new Map<string, StoredStaff>();
+  private ingredients = new Map<string, StoredIngredient>();
 
   seed(seed: Seed): void {
     for (const user of seed.users ?? []) this.users.set(user.id, clone(user));
@@ -51,6 +54,10 @@ export class MemoryRepository implements AppRepository {
     for (const staff of seed.staff ?? []) {
       const { advancesThisMonth: _advancesThisMonth, paidThisMonth: _paidThisMonth, balance: _balance, ...stored } = staff;
       this.staff.set(staff.id, clone({ ...stored, createdAt: new Date(0).toISOString() }));
+    }
+    for (const ingredient of seed.ingredients ?? []) {
+      const { isLow: _isLow, ...stored } = ingredient;
+      this.ingredients.set(ingredient.id, clone({ ...stored, createdAt: new Date(0).toISOString() }));
     }
   }
 
@@ -223,6 +230,27 @@ export class MemoryRepository implements AppRepository {
     if (!staff) throw new Error(`staff ${staffId} not found`);
     const updated = { ...staff, ...clone(patch), id: staffId };
     this.staff.set(staffId, updated);
+    return clone(updated);
+  }
+
+  async listIngredients(query: { activeOnly?: boolean } = {}): Promise<StoredIngredient[]> {
+    return [...this.ingredients.values()].filter((ingredient) => !query.activeOnly || ingredient.active).map(clone);
+  }
+
+  async findIngredientById(ingredientId: string): Promise<StoredIngredient | undefined> {
+    return clone(this.ingredients.get(ingredientId));
+  }
+
+  async createIngredient(ingredient: StoredIngredient): Promise<StoredIngredient> {
+    this.ingredients.set(ingredient.id, clone(ingredient));
+    return clone(ingredient);
+  }
+
+  async updateIngredient(ingredientId: string, patch: Partial<Omit<StoredIngredient, 'id' | 'createdAt'>>): Promise<StoredIngredient> {
+    const ingredient = this.ingredients.get(ingredientId);
+    if (!ingredient) throw new Error(`ingredient ${ingredientId} not found`);
+    const updated = { ...ingredient, ...clone(patch), id: ingredientId };
+    this.ingredients.set(ingredientId, updated);
     return clone(updated);
   }
 

@@ -100,6 +100,17 @@ export const staff = pgTable('staff', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const ingredients = pgTable('ingredients', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  unit: text('unit').notNull(),
+  stock: numeric('stock', { mode: 'number' }).notNull(),
+  minStock: numeric('min_stock', { mode: 'number' }).notNull(),
+  supplier: text('supplier').notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const moneyMovements = pgTable(
   'money_movements',
   {

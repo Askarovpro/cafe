@@ -10,6 +10,7 @@ const users = [
   { id: 'd1', telegramId: '2001', role: Role.Driver, name: 'Botir (driver)', phone: '+998900000003' },
   { id: 'f1', telegramId: '3001', role: Role.Finance, name: 'Moliyachi', phone: '+998900000004' },
   { id: 'o1', telegramId: '4001', role: Role.Owner, name: 'Egasi', phone: '+998900000005' },
+  { id: 'w1', telegramId: '5001', role: Role.Warehouse, name: 'Skladchi', phone: '+998900000006' },
 ];
 
 const clients = [
@@ -46,6 +47,16 @@ const clientPrices = [
 const staff = [
   { id: 'staff_aziz', name: 'Aziz', position: 'Oshpaz', salary: 4000000 },
   { id: 'staff_dilnoza', name: 'Dilnoza', position: 'Ofitsiant', salary: 2500000 },
+];
+
+const ingredients = [
+  { id: 'ingredient_gosht', name: "Go'sht", unit: 'kg', stock: 8, minStock: 15, supplier: 'Halol Meat' },
+  { id: 'ingredient_guruch', name: 'Guruch', unit: 'kg', stock: 40, minStock: 30, supplier: 'Oziq Baza' },
+  { id: 'ingredient_sabzi', name: 'Sabzi', unit: 'kg', stock: 5, minStock: 12, supplier: 'Dehqon Bozor' },
+  { id: 'ingredient_piyoz', name: 'Piyoz', unit: 'kg', stock: 3, minStock: 10, supplier: 'Dehqon Bozor' },
+  { id: 'ingredient_yog', name: "Yog'", unit: 'litr', stock: 6, minStock: 10, supplier: 'Oziq Baza' },
+  { id: 'ingredient_un', name: 'Un', unit: 'kg', stock: 25, minStock: 20, supplier: 'Oziq Baza' },
+  { id: 'ingredient_choy', name: 'Choy', unit: 'kg', stock: 2, minStock: 3, supplier: 'Halol Meat' },
 ];
 
 const pool = new Pool({ connectionString: databaseUrl });
@@ -125,6 +136,23 @@ try {
           active = true
       `,
       [person.id, person.name, person.position, person.salary],
+    );
+  }
+
+  for (const ingredient of ingredients) {
+    await pool.query(
+      `
+        insert into ingredients (id, name, unit, stock, min_stock, supplier, active, created_at)
+        values ($1, $2, $3, $4, $5, $6, true, now())
+        on conflict (id) do update set
+          name = excluded.name,
+          unit = excluded.unit,
+          stock = excluded.stock,
+          min_stock = excluded.min_stock,
+          supplier = excluded.supplier,
+          active = true
+      `,
+      [ingredient.id, ingredient.name, ingredient.unit, ingredient.stock, ingredient.minStock, ingredient.supplier],
     );
   }
 

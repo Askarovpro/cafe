@@ -57,6 +57,7 @@ const kitchen: User = { id: 'u-kitchen', telegramId: '1002', role: Role.Kitchen,
 const driver: User = { id: 'u-driver', telegramId: '1003', role: Role.Driver, name: 'Driver' };
 const finance: User = { id: 'u-finance', telegramId: '1004', role: Role.Finance, name: 'Finance' };
 const owner: User = { id: 'u-owner', telegramId: '1005', role: Role.Owner, name: 'Owner' };
+const warehouse: User = { id: 'u-warehouse', telegramId: '1006', role: Role.Warehouse, name: 'Warehouse' };
 
 function seededServices(options: { devAuth?: boolean } = {}) {
   const repo = new MemoryRepository();
@@ -493,6 +494,170 @@ describe('staff payroll', () => {
 
       expect(forbiddenList.statusCode).toBe(403);
       expect(forbiddenPay.statusCode).toBe(403);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('inventory', () => {
+  it('creates ingredients and lists active ingredients with derived low-stock state', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [warehouse] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const warehouseToken = services.auth.issueToken(warehouse);
+
+    try {
+      const meat = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: "Go'sht", unit: 'kg', stock: 8, minStock: 15, supplier: 'Halol Meat' },
+      });
+      const rice = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: 'Guruch', unit: 'kg', stock: 40, minStock: 30, supplier: 'Oziq Baza' },
+      });
+
+      const listed = await app.inject({
+        method: 'GET',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+      });
+
+      expect(meat.statusCode).toBe(201);
+      expect(rice.statusCode).toBe(201);
+      expect(listed.statusCode).toBe(200);
+      expect(listed.json()).toMatchObject([
+        { name: "Go'sht", stock: 8, minStock: 15, isLow: true, active: true },
+        { name: 'Guruch', stock: 40, minStock: 30, isLow: false, active: true },
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('adjusts stock up and down while clamping at zero', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [warehouse] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const warehouseToken = services.auth.issueToken(warehouse);
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: 'Sabzi', unit: 'kg', stock: 5, minStock: 12, supplier: 'Dehqon Bozor' },
+      });
+      const ingredient = created.json();
+
+      const received = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/adjust`,
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { delta: 4, reason: 'kirim' },
+      });
+      const used = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/adjust`,
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { delta: -3, reason: 'chiqim' },
+      });
+      const clamped = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/adjust`,
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { delta: -99, reason: 'write-off' },
+      });
+
+      expect(received.statusCode).toBe(200);
+      expect(received.json()).toMatchObject({ stock: 9, isLow: true });
+      expect(used.statusCode).toBe(200);
+      expect(used.json()).toMatchObject({ stock: 6, isLow: true });
+      expect(clamped.statusCode).toBe(200);
+      expect(clamped.json()).toMatchObject({ stock: 0, isLow: true });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('requires warehouse role for writes while allowing manager and owner reads', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, owner, warehouse] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const managerToken = services.auth.issueToken(manager);
+    const ownerToken = services.auth.issueToken(owner);
+    const warehouseToken = services.auth.issueToken(warehouse);
+
+    try {
+      const forbiddenCreate = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { name: 'Un', unit: 'kg', stock: 25, minStock: 20, supplier: 'Oziq Baza' },
+      });
+      const created = await app.inject({
+        method: 'POST',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${warehouseToken}` },
+        payload: { name: 'Un', unit: 'kg', stock: 25, minStock: 20, supplier: 'Oziq Baza' },
+      });
+      const ingredient = created.json();
+      const forbiddenAdjust = await app.inject({
+        method: 'POST',
+        url: `/ingredients/${ingredient.id}/adjust`,
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { delta: 1 },
+      });
+      const managerList = await app.inject({
+        method: 'GET',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${managerToken}` },
+      });
+      const ownerList = await app.inject({
+        method: 'GET',
+        url: '/ingredients',
+        headers: { authorization: `Bearer ${ownerToken}` },
+      });
+
+      expect(forbiddenCreate.statusCode).toBe(403);
+      expect(created.statusCode).toBe(201);
+      expect(forbiddenAdjust.statusCode).toBe(403);
+      expect(managerList.statusCode).toBe(200);
+      expect(ownerList.statusCode).toBe(200);
     } finally {
       await app.close();
     }

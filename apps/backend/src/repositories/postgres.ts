@@ -20,7 +20,7 @@ import {
 import { createDrizzle } from '../db/client.js';
 import * as schema from '../db/schema.js';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
+import type { AppRepository, ProductUpsert, StoredIngredient, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
 
 type Db = ReturnType<typeof createDrizzle>;
 type UserRow = typeof schema.users.$inferSelect;
@@ -31,6 +31,7 @@ type LedgerRow = typeof schema.ledgerEntries.$inferSelect;
 type MoneyAccountRow = typeof schema.moneyAccounts.$inferSelect;
 type MoneyMovementRow = typeof schema.moneyMovements.$inferSelect;
 type StaffRow = typeof schema.staff.$inferSelect;
+type IngredientRow = typeof schema.ingredients.$inferSelect;
 
 export class PostgresRepository implements AppRepository {
   constructor(private readonly db: Db) {}
@@ -248,6 +249,39 @@ export class PostgresRepository implements AppRepository {
     return staffFromRow(row);
   }
 
+  async listIngredients(query: { activeOnly?: boolean } = {}): Promise<StoredIngredient[]> {
+    let rows = (await this.db.select().from(schema.ingredients)).map(ingredientFromRow);
+    if (query.activeOnly) rows = rows.filter((ingredient) => ingredient.active);
+    return rows;
+  }
+
+  async findIngredientById(ingredientId: string): Promise<StoredIngredient | undefined> {
+    const [row] = await this.db.select().from(schema.ingredients).where(eq(schema.ingredients.id, ingredientId)).limit(1);
+    return row ? ingredientFromRow(row) : undefined;
+  }
+
+  async createIngredient(ingredient: StoredIngredient): Promise<StoredIngredient> {
+    const [row] = await this.db
+      .insert(schema.ingredients)
+      .values({
+        id: ingredient.id,
+        name: ingredient.name,
+        unit: ingredient.unit,
+        stock: ingredient.stock,
+        minStock: ingredient.minStock,
+        supplier: ingredient.supplier,
+        active: ingredient.active,
+        createdAt: new Date(ingredient.createdAt),
+      })
+      .returning();
+    return ingredientFromRow(row);
+  }
+
+  async updateIngredient(ingredientId: string, patch: Partial<Omit<StoredIngredient, 'id' | 'createdAt'>>): Promise<StoredIngredient> {
+    const [row] = await this.db.update(schema.ingredients).set(patch).where(eq(schema.ingredients.id, ingredientId)).returning();
+    return ingredientFromRow(row);
+  }
+
   private async clientFromRow(row: ClientRow): Promise<Client> {
     const entries = await this.listLedgerEntries(row.id);
     const balance = entries.reduce((sum, entry) => sum + (entry.type === 'charge' ? entry.amount : -entry.amount), 0);
@@ -397,6 +431,19 @@ function staffFromRow(row: StaffRow): StoredStaff {
     name: row.name,
     position: row.position,
     salary: row.salary,
+    active: row.active,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function ingredientFromRow(row: IngredientRow): StoredIngredient {
+  return {
+    id: row.id,
+    name: row.name,
+    unit: row.unit,
+    stock: row.stock,
+    minStock: row.minStock,
+    supplier: row.supplier,
     active: row.active,
     createdAt: row.createdAt.toISOString(),
   };

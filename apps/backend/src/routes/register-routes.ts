@@ -2,7 +2,9 @@ import websocket from '@fastify/websocket';
 import cors from '@fastify/cors';
 import {
   Role,
+  adjustStockSchema,
   copyPricesSchema,
+  createIngredientSchema,
   createClientSchema,
   createOrderSchema,
   createStaffSchema,
@@ -14,6 +16,7 @@ import {
   telegramAuthSchema,
   transitionSchema,
   updateClientSchema,
+  updateIngredientSchema,
   updateStaffSchema,
   type Subscribe,
 } from '@b2b/shared';
@@ -174,6 +177,28 @@ export async function registerRoutes(app: FastifyInstance, services: AppServices
     const user = await requireUser(request, services);
     requireAnyRole(user, [Role.Finance]);
     return reply.code(201).send(await services.staff.pay((request.params as { id: string }).id, parseBody(payStaffSchema, request), user.id));
+  });
+
+  app.get('/ingredients', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Warehouse, Role.Owner, Role.Manager]);
+    return services.inventory.list();
+  });
+  app.post('/ingredients', async (request, reply) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Warehouse]);
+    const input = parseBody(createIngredientSchema, request);
+    return reply.code(201).send(await services.inventory.create({ ...input, stock: input.stock ?? 0, minStock: input.minStock ?? 0 }));
+  });
+  app.patch('/ingredients/:id', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Warehouse]);
+    return services.inventory.update((request.params as { id: string }).id, parseBody(updateIngredientSchema, request));
+  });
+  app.post('/ingredients/:id/adjust', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Warehouse]);
+    return services.inventory.adjust((request.params as { id: string }).id, parseBody(adjustStockSchema, request));
   });
 }
 

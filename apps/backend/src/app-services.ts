@@ -1,6 +1,7 @@
 import { AuthService } from './auth/service.js';
 import { ClientsService } from './clients/service.js';
 import { NoopNotifier, type Notifier } from './delivery/notifier.js';
+import { InventoryService } from './inventory/service.js';
 import { LedgerService } from './ledger/service.js';
 import { MoneyService } from './money/service.js';
 import { OrdersService } from './orders/service.js';
@@ -30,6 +31,7 @@ export function createAppServices(input: {
   return {
     auth: new AuthService(input.repo, input.botToken, input.jwtSecret, input.devAuth ?? false),
     clients: new ClientsService(input.repo),
+    inventory: new InventoryService(input.repo),
     ledger,
     money,
     orders: new OrdersService(input.repo, ledger, money, input.poster, notifier, hub),

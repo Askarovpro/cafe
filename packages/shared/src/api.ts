@@ -38,6 +38,12 @@ export const API = {
   createStaff: 'POST /staff',
   updateStaff: 'PATCH /staff/:id',
   payStaff: 'POST /staff/:id/pay', // avans/oylik -> money EXPENSE from CASHBOX, tagged staffId
+
+  // Sklad (inventory) + Bozorlik
+  ingredients: 'GET /ingredients',
+  createIngredient: 'POST /ingredients',
+  updateIngredient: 'PATCH /ingredients/:id',
+  adjustStock: 'POST /ingredients/:id/adjust',
 } as const;
 
 // Response shapes

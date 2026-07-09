@@ -1,4 +1,4 @@
-import type { Client, ClientLocation, ClientPrice, LedgerEntry, MoneyAccount, MoneyMovement, Order, Product, Staff, User } from '@b2b/shared';
+import type { Client, ClientLocation, ClientPrice, Ingredient, LedgerEntry, MoneyAccount, MoneyMovement, Order, Product, Staff, User } from '@b2b/shared';
 
 export interface StoredClientPrice extends ClientPrice {
   clientId: string;
@@ -11,6 +11,10 @@ export interface StoredMoneyAccount extends Omit<MoneyAccount, 'balance' | 'pend
 export interface StoredMoneyMovement extends MoneyMovement {}
 
 export interface StoredStaff extends Omit<Staff, 'advancesThisMonth' | 'paidThisMonth' | 'balance'> {
+  createdAt: string;
+}
+
+export interface StoredIngredient extends Omit<Ingredient, 'isLow'> {
   createdAt: string;
 }
 
@@ -65,6 +69,11 @@ export interface AppRepository {
   findStaffById(id: string): Promise<StoredStaff | undefined>;
   createStaff(staff: StoredStaff): Promise<StoredStaff>;
   updateStaff(id: string, patch: Partial<Omit<StoredStaff, 'id' | 'createdAt'>>): Promise<StoredStaff>;
+
+  listIngredients(query?: { activeOnly?: boolean }): Promise<StoredIngredient[]>;
+  findIngredientById(id: string): Promise<StoredIngredient | undefined>;
+  createIngredient(ingredient: StoredIngredient): Promise<StoredIngredient>;
+  updateIngredient(id: string, patch: Partial<Omit<StoredIngredient, 'id' | 'createdAt'>>): Promise<StoredIngredient>;
 }
 
 export type NewClientInput = {
