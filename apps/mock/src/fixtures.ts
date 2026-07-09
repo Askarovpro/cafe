@@ -29,4 +29,5 @@ export const users: User[] = [
   { id: 'u2', telegramId: '1002', role: Role.Kitchen, name: 'Oshxona', phone: '+998900000002' },
   { id: 'd1', telegramId: '2001', role: Role.Driver, name: 'Botir (driver)', phone: '+998900000003' },
   { id: 'f1', telegramId: '3001', role: Role.Finance, name: 'Moliyachi', phone: '+998900000004' },
+  { id: 'o1', telegramId: '4001', role: Role.Owner, name: 'Egasi', phone: '+998900000005' },
 ];

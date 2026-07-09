@@ -157,7 +157,7 @@ export async function registerRoutes(app: FastifyInstance, services: AppServices
 
   app.get('/staff', async (request) => {
     const user = await requireUser(request, services);
-    requireAnyRole(user, [Role.Finance]);
+    requireAnyRole(user, [Role.Finance, Role.Owner]);
     return services.staff.list();
   });
   app.post('/staff', async (request, reply) => {
