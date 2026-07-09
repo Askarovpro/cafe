@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DeliveryType, OrderAction, OrderStatus, PaymentType } from '@b2b/shared';
 import type { Order } from '@b2b/shared';
-import { Docket, Money } from '@b2b/web-kit';
+import { Docket, Icon, Money } from '@b2b/web-kit';
 import { DRIVERS, api } from '../api.js';
 
 const ACTIVE = new Set<OrderStatus>([
@@ -57,7 +57,7 @@ function OrderActions({ order, onChange }: { order: Order; onChange: (o: Order) 
     const who = order.deliveryType === DeliveryType.Yandex ? 'Yandex' : DRIVERS.find((d) => d.id === order.driverId)?.name ?? 'Driver';
     return (
       <div className="split">
-        <span className="muted">🛵 {who} · {order.status === OrderStatus.Delivering ? "yo'lda" : 'biriktirildi'}</span>
+        <span className="muted ico-text"><Icon name="truck" size={16} /> {who} · {order.status === OrderStatus.Delivering ? "yo'lda" : 'biriktirildi'}</span>
         {order.yandexDeeplink && <a className="btn btn--ghost" href={order.yandexDeeplink} target="_blank" rel="noreferrer">Yandex ochish</a>}
       </div>
     );
@@ -67,8 +67,9 @@ function OrderActions({ order, onChange }: { order: Order; onChange: (o: Order) 
     return (
       <>
         {isCash && (
-          <div className="muted" style={{ color: order.cashHandedOver ? 'var(--st-ready)' : 'var(--muted)' }}>
-            {order.cashHandedOver ? '🟢 Driver naqdni topshirdi' : '⏳ Driver hali topshirmagan'}
+          <div className="muted ico-text" style={{ color: order.cashHandedOver ? 'var(--st-ready)' : 'var(--muted)' }}>
+            <Icon name={order.cashHandedOver ? 'checkCircle' : 'clock'} size={15} />
+            {order.cashHandedOver ? 'Driver naqdni topshirdi' : 'Driver hali topshirmagan'}
           </div>
         )}
         <button className="btn btn--block" onClick={() => run({ action: OrderAction.Close })}>

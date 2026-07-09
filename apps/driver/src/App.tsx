@@ -117,13 +117,13 @@ function Reports({ held, pending, heldTotal, pendingTotal, deliveredToday, deliv
       <div className="cashhero">
         <div className="cap"><Icon name="wallet" size={16} /> Qo'lingizdagi naqd</div>
         <div className="amt">{som(heldTotal)} <small>so'm</small></div>
-        {pendingTotal > 0 && <div className="hint">⏳ Tasdiq kutilmoqda: {som(pendingTotal)} so'm</div>}
+        {pendingTotal > 0 && <div className="hint ico-text"><Icon name="clock" size={14} /> Tasdiq kutilmoqda: {som(pendingTotal)} so'm</div>}
         {held.length > 0 && (
           <button className="btn btn--block" style={{ marginTop: 14 }} onClick={onHandover}>
             <Icon name="wallet" size={20} /> Pulni topshirdim
           </button>
         )}
-        {held.length === 0 && pendingTotal === 0 && <div className="hint">Hammasi topshirilgan 🎉</div>}
+        {held.length === 0 && pendingTotal === 0 && <div className="hint ico-text"><Icon name="checkCircle" size={14} /> Hammasi topshirilgan</div>}
       </div>
 
       <div className="stats">
@@ -146,7 +146,7 @@ function Reports({ held, pending, heldTotal, pendingTotal, deliveredToday, deliv
             <div className="ocard__top">
               <span className="ocard__id">#{o.id.length > 8 ? o.id.slice(-4).toUpperCase() : o.id}</span>
               <span style={{ flex: 1 }} />
-              {o.cashHandedOver ? <Chip tone="idle">⏳ Topshirildi</Chip> : <Chip tone="active">Qo'lda</Chip>}
+              {o.cashHandedOver ? <Chip tone="idle">Topshirildi</Chip> : <Chip tone="active">Qo'lda</Chip>}
             </div>
             <div className="ocard__client">{o.clientName}</div>
             <div className="drows">

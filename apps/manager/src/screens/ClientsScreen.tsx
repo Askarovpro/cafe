@@ -49,7 +49,7 @@ export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
           </div>
           <div className="field" style={{ marginTop: 10 }}>
             <label>Manzil (matn)<input value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} placeholder="Xaritadan avto-to'ladi" /></label>
-            {f.lat != null && <div className="muted mono">📍 {f.lat.toFixed(5)}, {f.lng!.toFixed(5)}</div>}
+            {f.lat != null && <div className="muted mono ico-text"><Icon name="pin" size={14} /> {f.lat.toFixed(5)}, {f.lng!.toFixed(5)}</div>}
           </div>
           <div className="split" style={{ marginTop: 12 }}>
             <button className="btn btn--ghost" onClick={() => setAdding(false)}>Bekor</button>

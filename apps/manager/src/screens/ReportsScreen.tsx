@@ -35,7 +35,7 @@ export function ReportsScreen({ orders }: { orders: Record<string, Order> }) {
 
       <div className="card">
         <h3>Qarzdorlar · jami {som(totalDebt)} so'm</h3>
-        {debtors.length === 0 && <div className="muted">Qarzdor yo'q 🎉</div>}
+        {debtors.length === 0 && <div className="muted ico-text"><Icon name="checkCircle" size={15} /> Qarzdor yo'q</div>}
         {debtors.map((c) => (
           <div className="rowitem" key={c.id}>
             <span>{c.name}</span>

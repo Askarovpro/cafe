@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OrderAction, OrderStatus } from '@b2b/shared';
 import type { Order } from '@b2b/shared';
-import { ApiClient, Docket, Money, connectOrders, initTelegram } from '@b2b/web-kit';
+import { ApiClient, Docket, Icon, Money, connectOrders, initTelegram, type IconName } from '@b2b/web-kit';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 const WS = API.replace(/^http/, 'ws') + '/ws';
@@ -14,9 +14,9 @@ async function authenticate(): Promise<void> {
   api.setToken(r.token);
 }
 
-const COLUMNS: { status: OrderStatus; title: string; accent: string; advance?: OrderAction; label?: string }[] = [
-  { status: OrderStatus.New, title: 'Tushgan', accent: 'var(--st-new)', advance: OrderAction.StartPrep, label: 'Boshlash' },
-  { status: OrderStatus.Preparing, title: 'Tayyorlanmoqda', accent: 'var(--st-preparing)', advance: OrderAction.Ready, label: 'Tayyor ✓' },
+const COLUMNS: { status: OrderStatus; title: string; accent: string; advance?: OrderAction; label?: string; icon?: IconName }[] = [
+  { status: OrderStatus.New, title: 'Tushgan', accent: 'var(--st-new)', advance: OrderAction.StartPrep, label: 'Boshlash', icon: 'box' },
+  { status: OrderStatus.Preparing, title: 'Tayyorlanmoqda', accent: 'var(--st-preparing)', advance: OrderAction.Ready, label: 'Tayyor', icon: 'checkCircle' },
   { status: OrderStatus.Ready, title: 'Tayyor', accent: 'var(--st-ready)' },
 ];
 
@@ -85,14 +85,14 @@ export function App() {
                       actions={
                         <>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span className={`age ${a.cls}`}>⏱ {a.text}</span>
+                            <span className={`age ico-text ${a.cls}`}><Icon name="clock" size={13} /> {a.text}</span>
                             <span className="mono" style={{ color: 'var(--muted)' }}>
                               <Money value={o.total} /> so'm
                             </span>
                           </div>
                           {col.advance && (
-                            <button className="btn btn--block" onClick={() => advance(o, col.advance!)}>
-                              {col.label}
+                            <button className="btn btn--block ico-text" onClick={() => advance(o, col.advance!)}>
+                              {col.icon && <Icon name={col.icon} size={18} />} {col.label}
                             </button>
                           )}
                         </>

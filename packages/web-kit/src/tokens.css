@@ -91,6 +91,9 @@ body {
 
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+/* inline icon + text */
+.ico-text { display: inline-flex; align-items: center; gap: 6px; }
+
 /* Status chip — restrained tones (gold/grey/green/red) with a grip dot */
 .chip {
   display: inline-flex;
