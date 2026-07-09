@@ -1,9 +1,9 @@
 // Typed API client against the frozen @b2b/shared contract.
 import type {
   AuthResponse, Client, ClientPrice, CreateOrder, LedgerEntry, LedgerResponse,
-  AdjustStock, CreateIngredient, CreateStaff, Ingredient, MoneyAccount, MoneyMovement,
-  MoneySummary, OfferedProduct, Order, PayStaff, Purchase, RecordExpense, RecordIncome,
-  RecordPayment, Staff, UpdateIngredient, UpdateStaff, Transition,
+  AdjustStock, CreateIngredient, CreateMenuSet, CreateStaff, Ingredient, MenuSet, MoneyAccount,
+  MoneyMovement, MoneySummary, OfferedProduct, OfferedSet, Order, PayStaff, Purchase, RecordExpense,
+  RecordIncome, RecordPayment, Staff, UpdateIngredient, UpdateMenuSet, UpdateStaff, Transition,
 } from '@b2b/shared';
 
 export class ApiClient {
@@ -78,6 +78,15 @@ export class ApiClient {
   updateIngredient(id: string, body: UpdateIngredient) { return this.req<Ingredient>('PATCH', `/ingredients/${id}`, body); }
   adjustStock(id: string, body: AdjustStock) { return this.req<Ingredient>('POST', `/ingredients/${id}/adjust`, body); }
   purchaseIngredient(id: string, body: Purchase) { return this.req<Ingredient>('POST', `/ingredients/${id}/purchase`, body); }
+
+  // Menu sets
+  sets() { return this.req<MenuSet[]>('GET', '/sets'); }
+  createSet(body: CreateMenuSet) { return this.req<MenuSet>('POST', '/sets', body); }
+  updateSet(id: string, body: UpdateMenuSet) { return this.req<MenuSet>('PATCH', `/sets/${id}`, body); }
+  clientSets(clientId: string) { return this.req<OfferedSet[]>('GET', `/clients/${clientId}/sets`); }
+  setClientSetPrice(clientId: string, setId: string, price: number) {
+    return this.req<{ setId: string; price: number }>('PUT', `/clients/${clientId}/set-prices/${setId}`, { price });
+  }
 }
 
 export class ApiError extends Error {

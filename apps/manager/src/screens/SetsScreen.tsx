@@ -1,0 +1,107 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { MenuSet, OfferedProduct } from '@b2b/shared';
+import { Icon, som } from '@b2b/web-kit';
+import { api } from '../api.js';
+
+export function SetsScreen() {
+  const [sets, setSets] = useState<MenuSet[]>([]);
+  const [products, setProducts] = useState<OfferedProduct[]>([]);
+  const [adding, setAdding] = useState(false);
+
+  const load = () => api.sets().then(setSets).catch(() => {});
+  useEffect(() => { load(); api.products().then(setProducts).catch(() => {}); }, []);
+
+  return (
+    <>
+      {!adding && <button className="btn btn--block" onClick={() => setAdding(true)}><Icon name="plus" size={20} /> Yangi to'plam</button>}
+      {adding && <Builder products={products} onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} />}
+
+      {sets.map((s) => (
+        <div className="card" key={s.id}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <h3 style={{ margin: 0 }}>{s.name}</h3>
+            <span className="mono" style={{ marginLeft: 'auto', fontWeight: 700 }}>{som(s.basePrice)}</span>
+          </div>
+          {s.description && <div className="muted" style={{ marginTop: 2 }}>{s.description}</div>}
+          <div style={{ marginTop: 8 }}>
+            {s.components.map((c) => (
+              <div className="docket__row" key={c.productId} style={{ padding: '4px 0', fontSize: 14 }}>
+                <span>{c.name}</span><span className="q">{c.qty}×</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {sets.length === 0 && !adding && <div className="empty">To'plam yo'q. «Yangi to'plam» tuzing.</div>}
+    </>
+  );
+}
+
+function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; onDone: () => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [price, setPrice] = useState('');
+  const [comps, setComps] = useState<{ productId: string; name: string; qty: number }[]>([]);
+  const [q, setQ] = useState('');
+
+  const matches = useMemo(() => {
+    if (!q.trim()) return [];
+    const inList = new Set(comps.map((c) => c.productId));
+    return products.filter((p) => !inList.has(p.id) && p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
+  }, [q, products, comps]);
+
+  const add = (p: OfferedProduct) => { setComps((c) => [...c, { productId: p.id, name: p.name, qty: 1 }]); setQ(''); };
+  const setQty = (id: string, qty: number) => setComps((c) => c.map((x) => (x.productId === id ? { ...x, qty: Math.max(1, qty) } : x)));
+  const remove = (id: string) => setComps((c) => c.filter((x) => x.productId !== id));
+
+  const save = async () => {
+    if (!name || comps.length === 0) return;
+    await api.createSet({ name, description: desc || undefined, basePrice: Number(price) || 0, components: comps.map((c) => ({ productId: c.productId, qty: c.qty })) });
+    onDone();
+  };
+
+  return (
+    <div className="card">
+      <h3>Yangi to'plam</h3>
+      <div className="field"><label>Nomi<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Biznes-lanch" /></label></div>
+      <div className="row2" style={{ marginTop: 10 }}>
+        <label>Narx (baza)<input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
+        <label>Tavsif<input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="ixtiyoriy" /></label>
+      </div>
+
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Mahsulot qo'shish (menyudan)<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="qidirish…" /></label>
+        {matches.length > 0 && (
+          <div className="card" style={{ padding: 6, marginTop: 4 }}>
+            {matches.map((p) => (
+              <div key={p.id} className="rowitem" style={{ cursor: 'pointer', padding: '8px 6px' }} onClick={() => add(p)}>
+                <span>{p.name}</span><span className="muted mono">{som(p.basePrice)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {comps.length > 0 && (
+        <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+          {comps.map((c) => (
+            <div key={c.productId} className="rowitem" style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '8px 12px' }}>
+              <span>{c.name}</span>
+              <span className="qty" style={{ marginLeft: 'auto' }}>
+                <button onClick={() => setQty(c.productId, c.qty - 1)}>−</button>
+                <span className="n">{c.qty}</span>
+                <button onClick={() => setQty(c.productId, c.qty + 1)}>+</button>
+                <button className="rm" onClick={() => remove(c.productId)} style={{ border: 0, background: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>×</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="split" style={{ marginTop: 14 }}>
+        <button className="btn btn--ghost" onClick={onCancel}>Bekor</button>
+        <button className="btn" disabled={!name || comps.length === 0} onClick={save}>Saqlash</button>
+      </div>
+    </div>
+  );
+}

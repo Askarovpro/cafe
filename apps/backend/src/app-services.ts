@@ -3,6 +3,7 @@ import { ClientsService } from './clients/service.js';
 import { NoopNotifier, type Notifier } from './delivery/notifier.js';
 import { InventoryService } from './inventory/service.js';
 import { LedgerService } from './ledger/service.js';
+import { MenuSetsService } from './menu-sets/service.js';
 import { MoneyService } from './money/service.js';
 import { OrdersService } from './orders/service.js';
 import type { PosterClient } from './poster-sync/poster-client.js';
@@ -33,6 +34,7 @@ export function createAppServices(input: {
     clients: new ClientsService(input.repo),
     inventory: new InventoryService(input.repo, money),
     ledger,
+    menuSets: new MenuSetsService(input.repo),
     money,
     orders: new OrdersService(input.repo, ledger, money, input.poster, notifier, hub),
     posterSync: new PosterSyncService(input.repo, input.poster),

@@ -41,7 +41,8 @@ export interface OfferedProduct extends Product {
 }
 
 export interface OrderItem {
-  productId: string;
+  productId?: string; // set when the line is a single product
+  setId?: string; // set when the line is a menu set (expands to components on Poster writeback)
   name: string;
   qty: number;
   unitPrice: number; // snapshot at order creation; editable before Ready

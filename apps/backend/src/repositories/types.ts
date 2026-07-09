@@ -1,8 +1,26 @@
-import type { Client, ClientLocation, ClientPrice, Ingredient, LedgerEntry, MoneyAccount, MoneyMovement, Order, Product, Staff, User } from '@b2b/shared';
+import type { Client, ClientLocation, ClientPrice, Ingredient, LedgerEntry, MenuSet, MoneyAccount, MoneyMovement, Order, Product, Staff, User } from '@b2b/shared';
 
 export interface StoredClientPrice extends ClientPrice {
   clientId: string;
 }
+
+export interface ClientSetPrice {
+  setId: string;
+  price: number;
+}
+
+export interface StoredClientSetPrice extends ClientSetPrice {
+  clientId: string;
+}
+
+export type MenuSetInput = Omit<MenuSet, 'components'> & {
+  components: Array<{ productId: string; qty: number }>;
+  createdAt: string;
+};
+
+export type MenuSetPatch = Partial<Omit<MenuSet, 'id' | 'components'>> & {
+  components?: Array<{ productId: string; qty: number }>;
+};
 
 export interface StoredMoneyAccount extends Omit<MoneyAccount, 'balance' | 'pendingIn' | 'pendingOut'> {
   createdAt: string;
@@ -46,6 +64,14 @@ export interface AppRepository {
   findClientPrice(clientId: string, productId: string): Promise<ClientPrice | undefined>;
   setClientPrice(clientId: string, price: ClientPrice): Promise<ClientPrice>;
   replaceClientPrices(clientId: string, prices: ClientPrice[]): Promise<ClientPrice[]>;
+
+  listMenuSets(query?: { activeOnly?: boolean }): Promise<MenuSet[]>;
+  findMenuSetById(setId: string): Promise<MenuSet | undefined>;
+  createMenuSet(set: MenuSetInput): Promise<MenuSet>;
+  updateMenuSet(setId: string, patch: MenuSetPatch): Promise<MenuSet>;
+  listClientSetPrices(clientId: string): Promise<ClientSetPrice[]>;
+  findClientSetPrice(clientId: string, setId: string): Promise<ClientSetPrice | undefined>;
+  setClientSetPrice(clientId: string, price: ClientSetPrice): Promise<ClientSetPrice>;
 
   listLedgerEntries(clientId: string): Promise<LedgerEntry[]>;
   appendLedgerEntry(entry: LedgerEntry): Promise<LedgerEntry>;

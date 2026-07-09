@@ -12,6 +12,7 @@ import {
   type ClientLocation,
   type ClientPrice,
   type LedgerEntry,
+  type MenuSet,
   type Order,
   type OrderItem,
   type Product,
@@ -20,12 +21,13 @@ import {
 import { createDrizzle } from '../db/client.js';
 import * as schema from '../db/schema.js';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredIngredient, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
+import type { AppRepository, ClientSetPrice, MenuSetInput, MenuSetPatch, ProductUpsert, StoredIngredient, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
 
 type Db = ReturnType<typeof createDrizzle>;
 type UserRow = typeof schema.users.$inferSelect;
 type ClientRow = typeof schema.clients.$inferSelect;
 type ProductRow = typeof schema.products.$inferSelect;
+type MenuSetRow = typeof schema.menuSets.$inferSelect;
 type OrderRow = typeof schema.orders.$inferSelect;
 type LedgerRow = typeof schema.ledgerEntries.$inferSelect;
 type MoneyAccountRow = typeof schema.moneyAccounts.$inferSelect;
@@ -131,6 +133,92 @@ export class PostgresRepository implements AppRepository {
       .values(prices.map((price) => ({ clientId, productId: price.productId, price: price.price })))
       .returning();
     return rows.map((row) => ({ productId: row.productId, price: row.price }));
+  }
+
+  async listMenuSets(query: { activeOnly?: boolean } = {}): Promise<MenuSet[]> {
+    const rows = await this.db.select().from(schema.menuSets);
+    return Promise.all(rows.filter((row) => !query.activeOnly || row.active).map((row) => this.menuSetFromRow(row)));
+  }
+
+  async findMenuSetById(setId: string): Promise<MenuSet | undefined> {
+    const [row] = await this.db.select().from(schema.menuSets).where(eq(schema.menuSets.id, setId)).limit(1);
+    return row ? this.menuSetFromRow(row) : undefined;
+  }
+
+  async createMenuSet(set: MenuSetInput): Promise<MenuSet> {
+    const [row] = await this.db
+      .insert(schema.menuSets)
+      .values({
+        id: set.id,
+        name: set.name,
+        description: set.description,
+        basePrice: set.basePrice,
+        active: set.active,
+        createdAt: new Date(set.createdAt),
+      })
+      .returning();
+    if (set.components.length) {
+      await this.db.insert(schema.menuSetComponents).values(
+        set.components.map((component, index) => ({
+          id: id('set_component'),
+          menuSetId: set.id,
+          productId: component.productId,
+          qty: component.qty,
+          sortOrder: index,
+        })),
+      );
+    }
+    return this.menuSetFromRow(row);
+  }
+
+  async updateMenuSet(setId: string, patch: MenuSetPatch): Promise<MenuSet> {
+    const values: Partial<typeof schema.menuSets.$inferInsert> = {};
+    if (patch.name !== undefined) values.name = patch.name;
+    if (patch.description !== undefined) values.description = patch.description;
+    if (patch.basePrice !== undefined) values.basePrice = patch.basePrice;
+    if (patch.active !== undefined) values.active = patch.active;
+
+    const [row] = Object.keys(values).length
+      ? await this.db.update(schema.menuSets).set(values).where(eq(schema.menuSets.id, setId)).returning()
+      : await this.db.select().from(schema.menuSets).where(eq(schema.menuSets.id, setId)).limit(1);
+
+    if (patch.components) {
+      await this.db.delete(schema.menuSetComponents).where(eq(schema.menuSetComponents.menuSetId, setId));
+      await this.db.insert(schema.menuSetComponents).values(
+        patch.components.map((component, index) => ({
+          id: id('set_component'),
+          menuSetId: setId,
+          productId: component.productId,
+          qty: component.qty,
+          sortOrder: index,
+        })),
+      );
+    }
+
+    if (!row) throw new Error(`menu set ${setId} not found`);
+    return this.menuSetFromRow(row);
+  }
+
+  async listClientSetPrices(clientId: string): Promise<ClientSetPrice[]> {
+    const rows = await this.db.select().from(schema.clientSetPrices).where(eq(schema.clientSetPrices.clientId, clientId));
+    return rows.map((row) => ({ setId: row.setId, price: row.price }));
+  }
+
+  async findClientSetPrice(clientId: string, setId: string): Promise<ClientSetPrice | undefined> {
+    const price = (await this.listClientSetPrices(clientId)).find((row) => row.setId === setId);
+    return price;
+  }
+
+  async setClientSetPrice(clientId: string, price: ClientSetPrice): Promise<ClientSetPrice> {
+    const [row] = await this.db
+      .insert(schema.clientSetPrices)
+      .values({ clientId, setId: price.setId, price: price.price })
+      .onConflictDoUpdate({
+        target: [schema.clientSetPrices.clientId, schema.clientSetPrices.setId],
+        set: { price: price.price },
+      })
+      .returning();
+    return { setId: row.setId, price: row.price };
   }
 
   async listLedgerEntries(clientId: string): Promise<LedgerEntry[]> {
@@ -281,6 +369,29 @@ export class PostgresRepository implements AppRepository {
   async updateIngredient(ingredientId: string, patch: Partial<Omit<StoredIngredient, 'id' | 'createdAt'>>): Promise<StoredIngredient> {
     const [row] = await this.db.update(schema.ingredients).set(patch).where(eq(schema.ingredients.id, ingredientId)).returning();
     return ingredientFromRow(row);
+  }
+
+  private async menuSetFromRow(row: MenuSetRow): Promise<MenuSet> {
+    const components = (await this.db.select().from(schema.menuSetComponents).where(eq(schema.menuSetComponents.menuSetId, row.id))).sort(
+      (left, right) => left.sortOrder - right.sortOrder,
+    );
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description ?? undefined,
+      basePrice: row.basePrice,
+      active: row.active,
+      components: await Promise.all(
+        components.map(async (component) => {
+          const product = await this.findProductById(component.productId);
+          return {
+            productId: component.productId,
+            name: product?.name ?? '',
+            qty: component.qty,
+          };
+        }),
+      ),
+    };
   }
 
   private async clientFromRow(row: ClientRow): Promise<Client> {

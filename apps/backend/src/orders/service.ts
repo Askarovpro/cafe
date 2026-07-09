@@ -39,13 +39,29 @@ export class OrdersService {
 
     const items: OrderItem[] = [];
     for (const item of input.items) {
-      const product = await this.repo.findProductById(item.productId);
-      if (!product) throw notFound('product not found');
-      const price = await this.repo.findClientPrice(input.clientId, item.productId);
-      if (!price) throw badRequest(`product ${item.productId} is not offered to this client`);
+      if (item.productId) {
+        const product = await this.repo.findProductById(item.productId);
+        if (!product) throw notFound('product not found');
+        const price = await this.repo.findClientPrice(input.clientId, item.productId);
+        if (!price) throw badRequest(`product ${item.productId} is not offered to this client`);
+        items.push({
+          productId: product.id,
+          name: product.name,
+          qty: item.qty,
+          unitPrice: price.price,
+          lineTotal: price.price * item.qty,
+        });
+        continue;
+      }
+
+      const setId = item.setId as string;
+      const menuSet = await this.repo.findMenuSetById(setId);
+      if (!menuSet || !menuSet.active) throw notFound('menu set not found');
+      const price = await this.repo.findClientSetPrice(input.clientId, setId);
+      if (!price) throw badRequest(`set ${setId} is not offered to this client`);
       items.push({
-        productId: product.id,
-        name: product.name,
+        setId: menuSet.id,
+        name: menuSet.name,
         qty: item.qty,
         unitPrice: price.price,
         lineTotal: price.price * item.qty,
@@ -154,13 +170,31 @@ export class OrdersService {
   }
 
   private async toPosterOrder(order: Order): Promise<PosterOrder> {
-    const items = await Promise.all(
-      order.items.map(async (item) => {
+    const items: PosterOrder['items'] = [];
+    for (const item of order.items) {
+      if (item.productId) {
         const product = await this.repo.findProductById(item.productId);
         if (!product) throw notFound('product not found');
-        return { ...item, posterProductId: product.posterId };
-      }),
-    );
+        items.push({ ...item, posterProductId: product.posterId });
+        continue;
+      }
+
+      const menuSet = await this.repo.findMenuSetById(item.setId as string);
+      if (!menuSet) throw notFound('menu set not found');
+      for (const component of menuSet.components) {
+        const product = await this.repo.findProductById(component.productId);
+        if (!product) throw notFound('product not found');
+        // ponytail: keep set revenue on the B2B order; Poster receives zero-price component lines.
+        items.push({
+          productId: product.id,
+          name: component.name,
+          qty: component.qty * item.qty,
+          unitPrice: 0,
+          lineTotal: 0,
+          posterProductId: product.posterId,
+        });
+      }
+    }
     return { ...order, items };
   }
 

@@ -8,9 +8,10 @@ import { NewOrderScreen } from './screens/NewOrderScreen.js';
 import { ClientsScreen } from './screens/ClientsScreen.js';
 import { ClientDetail } from './screens/ClientDetail.js';
 import { ReportsScreen } from './screens/ReportsScreen.js';
+import { SetsScreen } from './screens/SetsScreen.js';
 import './manager.css';
 
-type Tab = 'orders' | 'new' | 'clients' | 'reports';
+type Tab = 'orders' | 'new' | 'clients' | 'sets' | 'reports';
 
 export function App() {
   const [userId, setUserId] = useState('');
@@ -31,8 +32,8 @@ export function App() {
   const upsert = (o: Order) => setOrders((p) => ({ ...p, [o.id]: o }));
   const readyCount = Object.values(orders).filter((o) => o.status === OrderStatus.Ready).length;
 
-  const titles: Record<Tab, string> = { orders: 'Zakazlar', new: 'Yangi zakaz', clients: 'Mijozlar', reports: 'Hisobot' };
-  const tabIcon: Record<Tab, IconName> = { orders: 'box', new: 'plus', clients: 'store', reports: 'chart' };
+  const titles: Record<Tab, string> = { orders: 'Zakazlar', new: 'Yangi zakaz', clients: 'Mijozlar', sets: "To'plamlar", reports: 'Hisobot' };
+  const tabIcon: Record<Tab, IconName> = { orders: 'box', new: 'plus', clients: 'store', sets: 'bag', reports: 'chart' };
 
   return (
     <div className="app">
@@ -51,11 +52,12 @@ export function App() {
         {tab === 'new' && <NewOrderScreen onCreated={(o) => { upsert(o); setTab('orders'); }} />}
         {tab === 'clients' && !client && <ClientsScreen onOpen={setClient} />}
         {tab === 'clients' && client && <ClientDetail client={client} />}
+        {tab === 'sets' && <SetsScreen />}
         {tab === 'reports' && <ReportsScreen orders={orders} />}
       </div>
 
       <nav className="tabs">
-        {(['orders', 'new', 'clients', 'reports'] as Tab[]).map((t) => (
+        {(['orders', 'new', 'clients', 'sets', 'reports'] as Tab[]).map((t) => (
           <button
             key={t}
             className="tab"

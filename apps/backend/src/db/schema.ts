@@ -41,6 +41,45 @@ export const clientPrices = pgTable(
   (table) => ({ pk: primaryKey({ columns: [table.clientId, table.productId] }) }),
 );
 
+export const menuSets = pgTable('menu_sets', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  basePrice: numeric('base_price', { mode: 'number' }).notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const menuSetComponents = pgTable(
+  'menu_set_components',
+  {
+    id: text('id').primaryKey(),
+    menuSetId: text('menu_set_id')
+      .notNull()
+      .references(() => menuSets.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    qty: numeric('qty', { mode: 'number' }).notNull(),
+    sortOrder: integer('sort_order').notNull(),
+  },
+  (table) => ({ menuSetId: index('menu_set_components_menu_set_id_idx').on(table.menuSetId) }),
+);
+
+export const clientSetPrices = pgTable(
+  'client_set_prices',
+  {
+    clientId: text('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    setId: text('set_id')
+      .notNull()
+      .references(() => menuSets.id, { onDelete: 'cascade' }),
+    price: numeric('price', { mode: 'number' }).notNull(),
+  },
+  (table) => ({ pk: primaryKey({ columns: [table.clientId, table.setId] }) }),
+);
+
 export const orders = pgTable('orders', {
   id: text('id').primaryKey(),
   clientId: text('client_id').notNull().references(() => clients.id),

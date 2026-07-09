@@ -15,7 +15,7 @@ import {
   type User,
 } from '@b2b/shared';
 import { createAppServices } from '../src/app-services.js';
-import { buildIncomingOrderPayload, FakePosterClient, mapPosterProduct } from '../src/poster-sync/poster-client.js';
+import { buildIncomingOrderPayload, FakePosterClient, HttpPosterClient, mapPosterProduct } from '../src/poster-sync/poster-client.js';
 import { RealtimeHub } from '../src/realtime/hub.js';
 import { MemoryRepository } from '../src/repositories/memory.js';
 import { createTelegramInitData } from '../src/auth/telegram-init-data.js';
@@ -90,6 +90,157 @@ describe('pricing', () => {
 
     expect(offered.find((p) => p.id === productA.id)?.clientPrice).toBe(32000);
     expect(offered.find((p) => p.id === productB.id)?.clientPrice).toBeNull();
+  });
+});
+
+describe('menu sets', () => {
+  it('creates a set and lists it with resolved component names', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, kitchen], clients: [client], products: [productA, productB] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+        posterSpotId: 1,
+      },
+    });
+    const managerToken = services.auth.issueToken(manager);
+    const kitchenToken = services.auth.issueToken(kitchen);
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/sets',
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: {
+          name: 'Biznes-lanch',
+          description: 'Osh + somsa',
+          basePrice: 42000,
+          components: [
+            { productId: productA.id, qty: 1 },
+            { productId: productB.id, qty: 2 },
+          ],
+        },
+      });
+
+      expect(created.statusCode).toBe(201);
+      const listed = await app.inject({
+        method: 'GET',
+        url: '/sets',
+        headers: { authorization: `Bearer ${kitchenToken}` },
+      });
+
+      expect(listed.statusCode).toBe(200);
+      expect(listed.json()).toEqual([
+        expect.objectContaining({
+          id: created.json().id,
+          name: 'Biznes-lanch',
+          description: 'Osh + somsa',
+          basePrice: 42000,
+          active: true,
+          components: [
+            { productId: productA.id, name: productA.name, qty: 1 },
+            { productId: productB.id, name: productB.name, qty: 2 },
+          ],
+        }),
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('sets client prices and lists unpriced active sets with clientPrice null', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, kitchen], clients: [client], products: [productA, productB] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+        posterSpotId: 1,
+      },
+    });
+    const managerToken = services.auth.issueToken(manager);
+    const kitchenToken = services.auth.issueToken(kitchen);
+
+    try {
+      const first = await app.inject({
+        method: 'POST',
+        url: '/sets',
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { name: 'Biznes-lanch', basePrice: 42000, components: [{ productId: productA.id, qty: 1 }] },
+      });
+      const second = await app.inject({
+        method: 'POST',
+        url: '/sets',
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { name: 'Choy set', basePrice: 12000, components: [{ productId: productB.id, qty: 1 }] },
+      });
+      const price = await app.inject({
+        method: 'PUT',
+        url: `/clients/${client.id}/set-prices/${first.json().id}`,
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { price: 39000 },
+      });
+      const offered = await app.inject({
+        method: 'GET',
+        url: `/clients/${client.id}/sets`,
+        headers: { authorization: `Bearer ${kitchenToken}` },
+      });
+
+      expect(first.statusCode).toBe(201);
+      expect(second.statusCode).toBe(201);
+      expect(price.statusCode).toBe(200);
+      expect(offered.statusCode).toBe(200);
+      expect(offered.json().find((set: any) => set.id === first.json().id)?.clientPrice).toBe(39000);
+      expect(offered.json().find((set: any) => set.id === second.json().id)?.clientPrice).toBeNull();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects non-manager set creation through HTTP routes', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [kitchen], products: [productA] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+        posterSpotId: 1,
+      },
+    });
+    const kitchenToken = services.auth.issueToken(kitchen);
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/sets',
+        headers: { authorization: `Bearer ${kitchenToken}` },
+        payload: {
+          name: 'Blocked set',
+          basePrice: 1000,
+          components: [{ productId: productA.id, qty: 1 }],
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+    } finally {
+      await app.close();
+    }
   });
 });
 
@@ -830,6 +981,88 @@ describe('orders', () => {
     expect(order.total).toBe(96000);
   });
 
+  it('computes set line totals from the client set price and rejects unoffered sets', async () => {
+    const { services } = seededServices();
+    const offeredSet = await services.menuSets.create({
+      name: 'Biznes-lanch',
+      basePrice: 42000,
+      components: [
+        { productId: productA.id, qty: 1 },
+        { productId: productB.id, qty: 1 },
+      ],
+    });
+    const unofferedSet = await services.menuSets.create({
+      name: 'Unpriced lanch',
+      basePrice: 50000,
+      components: [{ productId: productA.id, qty: 1 }],
+    });
+    await services.menuSets.setClientPrice(client.id, offeredSet.id, 39000);
+
+    const order = await services.orders.create(
+      {
+        clientId: client.id,
+        items: [{ setId: offeredSet.id, qty: 3 }],
+        portions: 3,
+        location: client.locations[0],
+        contactPhone: client.contactPhone,
+        paymentType: PaymentType.Transfer,
+      },
+      manager,
+    );
+
+    expect(order.items[0]).toMatchObject({ setId: offeredSet.id, name: 'Biznes-lanch', qty: 3, unitPrice: 39000, lineTotal: 117000 });
+    expect(order.total).toBe(117000);
+    await expect(
+      services.orders.create(
+        {
+          clientId: client.id,
+          items: [{ setId: unofferedSet.id, qty: 1 }],
+          portions: 1,
+          location: client.locations[0],
+          contactPhone: client.contactPhone,
+          paymentType: PaymentType.Transfer,
+        },
+        manager,
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('expands set lines into component Poster products at Ready writeback', async () => {
+    const { services, poster } = seededServices();
+    const menuSet = await services.menuSets.create({
+      name: 'Biznes-lanch',
+      basePrice: 42000,
+      components: [
+        { productId: productA.id, qty: 1 },
+        { productId: productB.id, qty: 2 },
+      ],
+    });
+    await services.menuSets.setClientPrice(client.id, menuSet.id, 39000);
+    const order = await services.orders.create(
+      {
+        clientId: client.id,
+        items: [{ setId: menuSet.id, qty: 3 }],
+        portions: 3,
+        location: client.locations[0],
+        contactPhone: client.contactPhone,
+        paymentType: PaymentType.Transfer,
+      },
+      manager,
+    );
+
+    await services.orders.transition(order.id, { action: OrderAction.StartPrep }, kitchen);
+    await services.orders.transition(order.id, { action: OrderAction.Ready }, kitchen);
+
+    expect(poster.createdOrders[0].items).toEqual([
+      expect.objectContaining({ posterProductId: productA.posterId, qty: 3, unitPrice: 0, lineTotal: 0 }),
+      expect.objectContaining({ posterProductId: productB.posterId, qty: 6, unitPrice: 0, lineTotal: 0 }),
+    ]);
+    expect(buildIncomingOrderPayload(poster.createdOrders[0], 7).products).toEqual([
+      { product_id: productA.posterId, count: 3, price: 0 },
+      { product_id: productB.posterId, count: 6, price: 0 },
+    ]);
+  });
+
   it('rejects illegal transitions with 409 and role mismatches with 403', async () => {
     const { services } = seededServices();
     const order = await services.orders.create(
@@ -1091,6 +1324,44 @@ describe('server wiring', () => {
 });
 
 describe('poster sync', () => {
+  it('fetches goods and tech cards from Poster full sync', async () => {
+    const originalFetch = globalThis.fetch;
+    const requestedTypes: string[] = [];
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const parsed = new URL(String(url));
+      const type = parsed.searchParams.get('type') ?? '';
+      requestedTypes.push(type);
+      return new Response(
+        JSON.stringify({
+          response: [
+            {
+              product_id: type === 'batchtickets' ? 202 : 101,
+              product_name: type === 'batchtickets' ? 'Tech Osh' : 'Osh',
+              category_name: type,
+              price: { '1': type === 'batchtickets' ? '4500000' : '3500000' },
+              cost: '1000000',
+              unit: 'portion',
+              hidden: type === 'batchtickets' ? '1' : '0',
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const products = await new HttpPosterClient('token', 1).getProducts();
+
+      expect(requestedTypes).toEqual(['products', 'batchtickets']);
+      expect(products).toEqual([
+        expect.objectContaining({ posterId: '101', name: 'Osh', basePrice: 35000, isStopped: false }),
+        expect.objectContaining({ posterId: '202', name: 'Tech Osh', basePrice: 45000, isStopped: true }),
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('maps Poster products from kopecks and hidden flags', () => {
     expect(
       mapPosterProduct(

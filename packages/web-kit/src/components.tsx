@@ -39,7 +39,7 @@ export function Docket({
       <div className="docket__body">
         <div style={{ fontWeight: 650, marginBottom: 6 }}>{order.clientName}</div>
         {order.items.map((it) => (
-          <div className="docket__row" key={it.productId}>
+          <div className="docket__row" key={it.productId ?? it.setId}>
             <span>{it.name}</span>
             <span className="q">
               {it.qty}× <Money value={it.unitPrice} />

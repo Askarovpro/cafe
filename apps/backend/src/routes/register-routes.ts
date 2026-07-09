@@ -6,6 +6,7 @@ import {
   copyPricesSchema,
   createIngredientSchema,
   createClientSchema,
+  createMenuSetSchema,
   createOrderSchema,
   createStaffSchema,
   payStaffSchema,
@@ -18,6 +19,7 @@ import {
   transitionSchema,
   updateClientSchema,
   updateIngredientSchema,
+  updateMenuSetSchema,
   updateStaffSchema,
   type Subscribe,
 } from '@b2b/shared';
@@ -111,6 +113,32 @@ export async function registerRoutes(app: FastifyInstance, services: AppServices
     const user = await requireUser(request, services);
     requireAnyRole(user, [Role.Manager]);
     return services.ledger.recordPayment((request.params as { id: string }).id, parseBody(recordPaymentSchema, request), user);
+  });
+
+  app.get('/sets', async (request) => {
+    await requireUser(request, services);
+    return services.menuSets.list();
+  });
+  app.post('/sets', async (request, reply) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Manager]);
+    return reply.code(201).send(await services.menuSets.create(parseBody(createMenuSetSchema, request)));
+  });
+  app.patch('/sets/:id', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Manager]);
+    return services.menuSets.update((request.params as { id: string }).id, parseBody(updateMenuSetSchema, request));
+  });
+  app.get('/clients/:id/sets', async (request) => {
+    await requireUser(request, services);
+    return services.menuSets.listOffered((request.params as { id: string }).id);
+  });
+  app.put('/clients/:id/set-prices/:setId', async (request) => {
+    const user = await requireUser(request, services);
+    requireAnyRole(user, [Role.Manager]);
+    const { id, setId } = request.params as { id: string; setId: string };
+    const { price } = parseBody(setPriceSchema, request);
+    return services.menuSets.setClientPrice(id, setId, price);
   });
 
   app.get('/orders', async (request) => {

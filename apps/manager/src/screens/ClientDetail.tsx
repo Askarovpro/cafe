@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Client, LedgerEntry, OfferedProduct } from '@b2b/shared';
+import type { Client, LedgerEntry, OfferedProduct, OfferedSet } from '@b2b/shared';
 import { Money, som } from '@b2b/web-kit';
 import { api } from '../api.js';
 
@@ -24,14 +24,21 @@ export function ClientDetail({ client }: { client: Client }) {
 
 function Pricing({ client }: { client: Client }) {
   const [products, setProducts] = useState<OfferedProduct[]>([]);
+  const [sets, setSets] = useState<OfferedSet[]>([]);
   const [others, setOthers] = useState<Client[]>([]);
   const load = () => api.products(client.id).then(setProducts).catch(() => {});
-  useEffect(() => { load(); api.clients().then((c) => setOthers(c.filter((x) => x.id !== client.id))).catch(() => {}); }, [client.id]);
+  const loadSets = () => api.clientSets(client.id).then(setSets).catch(() => {});
+  useEffect(() => { load(); loadSets(); api.clients().then((c) => setOthers(c.filter((x) => x.id !== client.id))).catch(() => {}); }, [client.id]);
 
   const save = (productId: string, raw: string) => {
     const price = Number(raw);
     if (!Number.isFinite(price) || price < 0) return;
     api.setPrice(client.id, productId, price).then(load).catch(() => {});
+  };
+  const saveSet = (setId: string, raw: string) => {
+    const price = Number(raw);
+    if (!Number.isFinite(price) || price < 0) return;
+    api.setClientSetPrice(client.id, setId, price).then(loadSets).catch(() => {});
   };
 
   return (
@@ -59,6 +66,24 @@ function Pricing({ client }: { client: Client }) {
           </div>
         ))}
       </div>
+      {sets.length > 0 && (
+        <div className="card">
+          <h3>To'plam narxlari</h3>
+          {sets.map((s) => (
+            <div className="docket__row" key={s.id} style={{ alignItems: 'center', padding: '8px 0' }}>
+              <span>{s.name}<br /><span className="muted mono">baza {som(s.basePrice)}</span></span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, width: 130 }}>
+                <input
+                  type="number" defaultValue={s.clientPrice ?? ''} placeholder="—"
+                  key={`${s.id}:${s.clientPrice}`}
+                  onBlur={(e) => e.target.value !== '' && saveSet(s.id, e.target.value)}
+                  style={{ textAlign: 'right' }}
+                />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="muted">Narxni kiriting va boshqa joyga bosing — saqlanadi. Bo'sh = taklif qilinmaydi.</div>
     </>
   );

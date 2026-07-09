@@ -32,7 +32,11 @@ export const recordPaymentSchema = z.object({
 
 export const createOrderSchema = z.object({
   clientId: z.string().min(1),
-  items: z.array(z.object({ productId: z.string().min(1), qty: z.number().positive() })).min(1),
+  // each line references a product OR a set (exactly one)
+  items: z.array(
+    z.object({ productId: z.string().optional(), setId: z.string().optional(), qty: z.number().positive() })
+      .refine((it) => !!it.productId !== !!it.setId, { message: 'each item needs exactly one of productId or setId' }),
+  ).min(1),
   portions: z.number().int().positive(),
   location: clientLocationSchema,
   contactPhone: z.string().min(1),

@@ -45,6 +45,13 @@ export const API = {
   updateIngredient: 'PATCH /ingredients/:id',
   adjustStock: 'POST /ingredients/:id/adjust', // stock correction, no money
   purchaseIngredient: 'POST /ingredients/:id/purchase', // bozorlik: +stock + cashbox expense + unit cost
+
+  // Menu sets (to'plam)
+  sets: 'GET /sets',
+  createSet: 'POST /sets',
+  updateSet: 'PATCH /sets/:id',
+  clientSets: 'GET /clients/:id/sets', // OfferedSet[] (set + clientPrice)
+  setClientSetPrice: 'PUT /clients/:id/set-prices/:setId',
 } as const;
 
 // Response shapes

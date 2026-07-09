@@ -4,19 +4,38 @@ import {
   type ClientPrice,
   type Ingredient,
   type LedgerEntry,
+  type MenuSet,
   type Order,
   type Product,
   type Staff,
   type User,
 } from '@b2b/shared';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredClientPrice, StoredIngredient, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
+import type {
+  AppRepository,
+  ClientSetPrice,
+  MenuSetInput,
+  MenuSetPatch,
+  ProductUpsert,
+  StoredClientPrice,
+  StoredClientSetPrice,
+  StoredIngredient,
+  StoredMoneyAccount,
+  StoredMoneyMovement,
+  StoredStaff,
+} from './types.js';
+
+type StoredMenuSet = Omit<MenuSetInput, 'components'> & {
+  components: Array<{ productId: string; qty: number }>;
+};
 
 type Seed = {
   users?: User[];
   products?: Product[];
   clients?: Client[];
   clientPrices?: StoredClientPrice[];
+  menuSets?: MenuSetInput[];
+  clientSetPrices?: StoredClientSetPrice[];
   orders?: Order[];
   ledgerEntries?: LedgerEntry[];
   moneyAccounts?: StoredMoneyAccount[];
@@ -32,6 +51,8 @@ export class MemoryRepository implements AppRepository {
   private products = new Map<string, Product>();
   private clients = new Map<string, Omit<Client, 'balance'>>();
   private clientPrices = new Map<string, StoredClientPrice>();
+  private menuSets = new Map<string, StoredMenuSet>();
+  private clientSetPrices = new Map<string, StoredClientSetPrice>();
   private orders = new Map<string, Order>();
   private ledger = new Map<string, LedgerEntry>();
   private moneyAccounts = new Map<string, StoredMoneyAccount>();
@@ -47,6 +68,8 @@ export class MemoryRepository implements AppRepository {
       this.clients.set(client.id, clone(stored));
     }
     for (const price of seed.clientPrices ?? []) this.clientPrices.set(this.priceKey(price.clientId, price.productId), clone(price));
+    for (const set of seed.menuSets ?? []) this.menuSets.set(set.id, clone(set));
+    for (const price of seed.clientSetPrices ?? []) this.clientSetPrices.set(this.priceKey(price.clientId, price.setId), clone(price));
     for (const order of seed.orders ?? []) this.orders.set(order.id, clone(order));
     for (const entry of seed.ledgerEntries ?? []) this.ledger.set(entry.id, clone(entry));
     for (const account of seed.moneyAccounts ?? []) this.moneyAccounts.set(account.id, clone(account));
@@ -131,6 +154,42 @@ export class MemoryRepository implements AppRepository {
     }
     for (const price of prices) this.clientPrices.set(this.priceKey(clientId, price.productId), { clientId, ...clone(price) });
     return prices.map(clone);
+  }
+
+  async listMenuSets(query: { activeOnly?: boolean } = {}): Promise<MenuSet[]> {
+    return [...this.menuSets.values()].filter((set) => !query.activeOnly || set.active).map((set) => this.menuSetWithComponentNames(set));
+  }
+
+  async findMenuSetById(setId: string): Promise<MenuSet | undefined> {
+    const set = this.menuSets.get(setId);
+    return set ? this.menuSetWithComponentNames(set) : undefined;
+  }
+
+  async createMenuSet(set: MenuSetInput): Promise<MenuSet> {
+    this.menuSets.set(set.id, clone(set));
+    return this.menuSetWithComponentNames(set);
+  }
+
+  async updateMenuSet(setId: string, patch: MenuSetPatch): Promise<MenuSet> {
+    const set = this.menuSets.get(setId);
+    if (!set) throw new Error(`menu set ${setId} not found`);
+    const updated: StoredMenuSet = { ...set, ...clone(patch), id: setId };
+    this.menuSets.set(setId, updated);
+    return this.menuSetWithComponentNames(updated);
+  }
+
+  async listClientSetPrices(clientId: string): Promise<ClientSetPrice[]> {
+    return [...this.clientSetPrices.values()].filter((price) => price.clientId === clientId).map(({ setId, price }) => ({ setId, price }));
+  }
+
+  async findClientSetPrice(clientId: string, setId: string): Promise<ClientSetPrice | undefined> {
+    const price = this.clientSetPrices.get(this.priceKey(clientId, setId));
+    return price ? { setId: price.setId, price: price.price } : undefined;
+  }
+
+  async setClientSetPrice(clientId: string, price: ClientSetPrice): Promise<ClientSetPrice> {
+    this.clientSetPrices.set(this.priceKey(clientId, price.setId), { clientId, ...clone(price) });
+    return clone(price);
   }
 
   async listLedgerEntries(clientId: string): Promise<LedgerEntry[]> {
@@ -259,6 +318,21 @@ export class MemoryRepository implements AppRepository {
       .filter((entry) => entry.clientId === client.id)
       .reduce((sum, entry) => sum + (entry.type === 'charge' ? entry.amount : -entry.amount), 0);
     return { ...clone(client), balance };
+  }
+
+  private menuSetWithComponentNames(set: StoredMenuSet): MenuSet {
+    return {
+      id: set.id,
+      name: set.name,
+      description: set.description,
+      basePrice: set.basePrice,
+      active: set.active,
+      components: set.components.map((component) => ({
+        productId: component.productId,
+        name: this.products.get(component.productId)?.name ?? '',
+        qty: component.qty,
+      })),
+    };
   }
 
   private priceKey(clientId: string, productId: string): string {

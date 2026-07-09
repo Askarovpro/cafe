@@ -6,3 +6,4 @@ export * from './ws.js';
 export * from './money.js';
 export * from './staff.js';
 export * from './inventory.js';
+export * from './menuset.js';

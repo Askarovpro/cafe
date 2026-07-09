@@ -50,8 +50,11 @@ export class HttpPosterClient implements PosterClient {
   ) {}
 
   async getProducts(): Promise<PosterProductInput[]> {
-    const data = await this.posterGet<{ response?: Array<Record<string, unknown>> }>('/menu.getProducts', { type: 'products' });
-    return (data.response ?? []).map((row) => mapPosterProduct(row, this.spotId));
+    const [products, batchtickets] = await Promise.all([
+      this.posterGet<{ response?: Array<Record<string, unknown>> }>('/menu.getProducts', { type: 'products' }),
+      this.posterGet<{ response?: Array<Record<string, unknown>> }>('/menu.getProducts', { type: 'batchtickets' }),
+    ]);
+    return [...(products.response ?? []), ...(batchtickets.response ?? [])].map((row) => mapPosterProduct(row, this.spotId));
   }
 
   async createIncomingOrder(order: PosterOrder): Promise<string> {
