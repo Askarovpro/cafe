@@ -43,12 +43,20 @@ function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; o
   const [price, setPrice] = useState('');
   const [comps, setComps] = useState<{ productId: string; name: string; qty: number }[]>([]);
   const [q, setQ] = useState('');
+  const [cat, setCat] = useState('');
 
+  const cats = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [products],
+  );
   const matches = useMemo(() => {
-    if (!q.trim()) return [];
     const inList = new Set(comps.map((c) => c.productId));
-    return products.filter((p) => !inList.has(p.id) && p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
-  }, [q, products, comps]);
+    const ql = q.trim().toLowerCase();
+    if (!cat && !ql) return [];
+    return products
+      .filter((p) => !inList.has(p.id) && !p.isStopped && (!cat || p.category === cat) && (!ql || p.name.toLowerCase().includes(ql)))
+      .slice(0, 40);
+  }, [q, cat, products, comps]);
 
   const add = (p: OfferedProduct) => { setComps((c) => [...c, { productId: p.id, name: p.name, qty: 1 }]); setQ(''); };
   const setQty = (id: string, qty: number) => setComps((c) => c.map((x) => (x.productId === id ? { ...x, qty: Math.max(1, qty) } : x)));
@@ -70,12 +78,21 @@ function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; o
       </div>
 
       <div className="field" style={{ marginTop: 12 }}>
-        <label>Mahsulot qo'shish (menyudan)<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="qidirish…" /></label>
+        <label style={{ marginBottom: 2 }}>Menyudan qo'shish (Poster mahsulot / tex card)</label>
+        <div className="row2">
+          <select value={cat} onChange={(e) => setCat(e.target.value)}>
+            <option value="">Barcha kategoriya</option>
+            {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="qidirish…" />
+        </div>
+        {!cat && !q.trim() && <div className="muted" style={{ marginTop: 6 }}>Kategoriya tanlang yoki qidiring.</div>}
         {matches.length > 0 && (
-          <div className="card" style={{ padding: 6, marginTop: 4 }}>
+          <div className="card" style={{ padding: 6, marginTop: 6, maxHeight: 320, overflowY: 'auto' }}>
             {matches.map((p) => (
-              <div key={p.id} className="rowitem" style={{ cursor: 'pointer', padding: '8px 6px' }} onClick={() => add(p)}>
-                <span>{p.name}</span><span className="muted mono">{som(p.basePrice)}</span>
+              <div key={p.id} className="rowitem" style={{ cursor: 'pointer', padding: '9px 6px' }} onClick={() => add(p)}>
+                <span>{p.name}<br /><span className="muted" style={{ fontSize: 12 }}>{p.category}</span></span>
+                <span className="muted mono">{som(p.basePrice)}</span>
               </div>
             ))}
           </div>
