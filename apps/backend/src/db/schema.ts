@@ -45,6 +45,7 @@ export const menuSets = pgTable('menu_sets', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  image: text('image'),
   basePrice: numeric('base_price', { mode: 'number' }).notNull(),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -15,6 +15,7 @@ export interface MenuSet {
   name: string;
   description?: string;
   basePrice: number;
+  image?: string; // data URL (client-resized) or hosted URL
   components: MenuSetComponent[];
   active: boolean;
 }
@@ -33,6 +34,7 @@ export const createMenuSetSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   basePrice: z.number().nonnegative(),
+  image: z.string().optional(),
   components: z.array(menuSetComponentSchema).min(1),
 });
 

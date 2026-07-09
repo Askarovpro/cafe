@@ -1,0 +1,1 @@
+ALTER TABLE menu_sets ADD COLUMN IF NOT EXISTS image text;

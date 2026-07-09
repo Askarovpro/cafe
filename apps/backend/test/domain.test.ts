@@ -154,6 +154,56 @@ describe('menu sets', () => {
     }
   });
 
+  it('returns image for a created set in the set list', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, kitchen], clients: [client], products: [productA] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+        posterSpotId: 1,
+      },
+    });
+    const managerToken = services.auth.issueToken(manager);
+    const kitchenToken = services.auth.issueToken(kitchen);
+    const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/sets',
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: {
+          name: 'Image set',
+          basePrice: 42000,
+          image,
+          components: [{ productId: productA.id, qty: 1 }],
+        },
+      });
+      const listed = await app.inject({
+        method: 'GET',
+        url: '/sets',
+        headers: { authorization: `Bearer ${kitchenToken}` },
+      });
+
+      expect(created.statusCode).toBe(201);
+      expect(listed.statusCode).toBe(200);
+      expect(listed.json()).toEqual([
+        expect.objectContaining({
+          id: created.json().id,
+          image,
+        }),
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('sets client prices and lists unpriced active sets with clientPrice null', async () => {
     const repo = new MemoryRepository();
     repo.seed({ users: [manager, kitchen], clients: [client], products: [productA, productB] });

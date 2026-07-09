@@ -11,6 +11,11 @@ export function SetsScreen() {
   const load = () => api.sets().then(setSets).catch(() => {});
   useEffect(() => { load(); api.products().then(setProducts).catch(() => {}); }, []);
 
+  const del = (id: string) => {
+    if (!confirm("To'plamni o'chirasizmi?")) return;
+    api.updateSet(id, { active: false }).then(load).catch(() => {});
+  };
+
   return (
     <>
       {!adding && <button className="btn btn--block" onClick={() => setAdding(true)}><Icon name="plus" size={20} /> Yangi to'plam</button>}
@@ -18,11 +23,13 @@ export function SetsScreen() {
 
       {sets.map((s) => (
         <div className="card" key={s.id}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {s.image && <img src={s.image} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />}
             <h3 style={{ margin: 0 }}>{s.name}</h3>
             <span className="mono" style={{ marginLeft: 'auto', fontWeight: 700 }}>{som(s.basePrice)}</span>
+            <button className="rm" onClick={() => del(s.id)} aria-label="o'chirish" style={{ border: 0, background: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', padding: 0 }}>×</button>
           </div>
-          {s.description && <div className="muted" style={{ marginTop: 2 }}>{s.description}</div>}
+          {s.description && <div className="muted" style={{ marginTop: 6 }}>{s.description}</div>}
           <div style={{ marginTop: 8 }}>
             {s.components.map((c) => (
               <div className="docket__row" key={c.productId} style={{ padding: '4px 0', fontSize: 14 }}>
@@ -37,6 +44,22 @@ export function SetsScreen() {
   );
 }
 
+async function fileToDataUrl(file: File, maxW = 480): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = URL.createObjectURL(file);
+  });
+  const scale = Math.min(1, maxW / img.width);
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.8);
+}
+
 function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; onDone: () => void; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -44,6 +67,7 @@ function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; o
   const [comps, setComps] = useState<{ productId: string; name: string; qty: number }[]>([]);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
+  const [image, setImage] = useState('');
 
   const cats = useMemo(
     () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
@@ -64,7 +88,7 @@ function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; o
 
   const save = async () => {
     if (!name || comps.length === 0) return;
-    await api.createSet({ name, description: desc || undefined, basePrice: Number(price) || 0, components: comps.map((c) => ({ productId: c.productId, qty: c.qty })) });
+    await api.createSet({ name, description: desc || undefined, basePrice: Number(price) || 0, image: image || undefined, components: comps.map((c) => ({ productId: c.productId, qty: c.qty })) });
     onDone();
   };
 
@@ -75,6 +99,21 @@ function Builder({ products, onDone, onCancel }: { products: OfferedProduct[]; o
       <div className="row2" style={{ marginTop: 10 }}>
         <label>Narx (baza)<input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
         <label>Tavsif<input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="ixtiyoriy" /></label>
+      </div>
+
+      <div className="field" style={{ marginTop: 10 }}>
+        <label>Rasm (ixtiyoriy)</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {image
+            ? <img src={image} alt="" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover' }} />
+            : <div style={{ width: 60, height: 60, borderRadius: 12, background: 'var(--surface-2)', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}><Icon name="box" size={22} /></div>}
+          <label className="btn btn--ghost" style={{ flex: '0 0 auto', cursor: 'pointer' }}>
+            {image ? 'Almashtirish' : 'Rasm tanlash'}
+            <input type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) fileToDataUrl(f).then(setImage).catch(() => {}); }} />
+          </label>
+          {image && <button className="rm" onClick={() => setImage('')} style={{ border: 0, background: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>×</button>}
+        </div>
       </div>
 
       <div className="field" style={{ marginTop: 12 }}>

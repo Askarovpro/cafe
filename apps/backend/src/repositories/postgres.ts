@@ -152,6 +152,7 @@ export class PostgresRepository implements AppRepository {
         id: set.id,
         name: set.name,
         description: set.description,
+        image: set.image,
         basePrice: set.basePrice,
         active: set.active,
         createdAt: new Date(set.createdAt),
@@ -175,6 +176,7 @@ export class PostgresRepository implements AppRepository {
     const values: Partial<typeof schema.menuSets.$inferInsert> = {};
     if (patch.name !== undefined) values.name = patch.name;
     if (patch.description !== undefined) values.description = patch.description;
+    if (patch.image !== undefined) values.image = patch.image;
     if (patch.basePrice !== undefined) values.basePrice = patch.basePrice;
     if (patch.active !== undefined) values.active = patch.active;
 
@@ -379,6 +381,7 @@ export class PostgresRepository implements AppRepository {
       id: row.id,
       name: row.name,
       description: row.description ?? undefined,
+      image: row.image ?? undefined,
       basePrice: row.basePrice,
       active: row.active,
       components: await Promise.all(

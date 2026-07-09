@@ -17,6 +17,7 @@ export class MenuSetsService {
       id: id('set'),
       name: input.name,
       description: input.description,
+      image: input.image,
       basePrice: input.basePrice,
       active: true,
       components: input.components,

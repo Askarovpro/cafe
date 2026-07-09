@@ -325,6 +325,7 @@ export class MemoryRepository implements AppRepository {
       id: set.id,
       name: set.name,
       description: set.description,
+      image: set.image,
       basePrice: set.basePrice,
       active: set.active,
       components: set.components.map((component) => ({
