@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { OrderStatus } from '@b2b/shared';
 import type { Client, Order } from '@b2b/shared';
-import { connectOrders } from '@b2b/web-kit';
+import { Icon, connectOrders, type IconName } from '@b2b/web-kit';
 import { WS, api, authenticate } from './api.js';
 import { OrdersScreen } from './screens/OrdersScreen.js';
 import { NewOrderScreen } from './screens/NewOrderScreen.js';
@@ -32,14 +32,19 @@ export function App() {
   const readyCount = Object.values(orders).filter((o) => o.status === OrderStatus.Ready).length;
 
   const titles: Record<Tab, string> = { orders: 'Zakazlar', new: 'Yangi zakaz', clients: 'Mijozlar', reports: 'Hisobot' };
+  const tabIcon: Record<Tab, IconName> = { orders: 'box', new: 'plus', clients: 'store', reports: 'chart' };
 
   return (
     <div className="app">
-      <div className="head">
-        <h1>{client ? client.name : titles[tab]}</h1>
-        <div className="spacer" />
-        {client && <button className="btn btn--ghost" onClick={() => setClient(null)}>← Orqaga</button>}
-      </div>
+      <header className="appbar">
+        {client
+          ? <button className="back" onClick={() => setClient(null)} aria-label="Orqaga"><Icon name="arrowLeft" size={20} /></button>
+          : <div className="mark"><Icon name="box" size={20} /></div>}
+        <div>
+          <div className="title">{client ? client.name : titles[tab]}</div>
+          <div className="sub">{client ? 'Mijoz' : 'B2B menejer'}</div>
+        </div>
+      </header>
 
       <div className="body">
         {tab === 'orders' && <OrdersScreen orders={orders} onChange={upsert} />}
@@ -57,8 +62,8 @@ export function App() {
             data-active={tab === t}
             onClick={() => { setTab(t); if (t !== 'clients') setClient(null); }}
           >
-            <span className="ic">{{ orders: '🧾', new: '＋', clients: '🏢', reports: '📊' }[t]}</span>
             {t === 'orders' && readyCount > 0 && <span className="badge">{readyCount}</span>}
+            <Icon name={tabIcon[t]} size={22} />
             {titles[t]}
           </button>
         ))}

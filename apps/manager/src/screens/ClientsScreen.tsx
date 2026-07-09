@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Client } from '@b2b/shared';
-import { som } from '@b2b/web-kit';
+import { Icon, som } from '@b2b/web-kit';
 import { api } from '../api.js';
 
 export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
@@ -24,7 +24,11 @@ export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
 
   return (
     <>
-      {!adding && <button className="btn btn--block" onClick={() => setAdding(true)}>＋ Yangi mijoz</button>}
+      {!adding && (
+        <button className="btn btn--block" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={20} /> Yangi mijoz
+        </button>
+      )}
 
       {adding && (
         <div className="card">
@@ -47,6 +51,7 @@ export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
 
       {clients.map((c) => (
         <div key={c.id} className="listrow" onClick={() => onOpen(c)}>
+          <span className="avatar"><Icon name="store" size={22} /></span>
           <div>
             <div style={{ fontWeight: 650 }}>{c.name}</div>
             <div className="sub">{c.contactName} · {c.contactPhone}</div>

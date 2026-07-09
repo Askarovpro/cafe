@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OrderStatus } from '@b2b/shared';
 import type { Client, Order } from '@b2b/shared';
-import { som } from '@b2b/web-kit';
+import { Icon, som, type IconName } from '@b2b/web-kit';
 import { api } from '../api.js';
 
 // Charged = reached Ready (revenue committed to Poster + ledger).
@@ -28,16 +28,16 @@ export function ReportsScreen({ orders }: { orders: Record<string, Order> }) {
 
   return (
     <>
-      <div className="row2">
-        <Stat label="Tushum (charged)" value={`${som(stats.revenue)}`} unit="so'm" />
-        <Stat label="Zakazlar" value={String(stats.chargedCount)} unit={`${stats.active} faol`} />
+      <div className="stats2">
+        <Stat icon="wallet" label="Tushum" value={som(stats.revenue)} unit="so'm" />
+        <Stat icon="box" label="Zakazlar" value={String(stats.chargedCount)} unit={`${stats.active} faol`} />
       </div>
 
       <div className="card">
         <h3>Qarzdorlar · jami {som(totalDebt)} so'm</h3>
         {debtors.length === 0 && <div className="muted">Qarzdor yo'q 🎉</div>}
         {debtors.map((c) => (
-          <div className="docket__row" key={c.id} style={{ padding: '8px 0' }}>
+          <div className="rowitem" key={c.id}>
             <span>{c.name}</span>
             <span className="mono bal--debt" style={{ fontWeight: 700 }}>{som(c.balance)}</span>
           </div>
@@ -47,12 +47,12 @@ export function ReportsScreen({ orders }: { orders: Record<string, Order> }) {
   );
 }
 
-function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
+function Stat({ icon, label, value, unit }: { icon: IconName; label: string; value: string; unit: string }) {
   return (
-    <div className="card">
-      <div className="muted">{label}</div>
-      <div className="mono" style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
-      <div className="muted" style={{ fontSize: 12 }}>{unit}</div>
+    <div className="stat">
+      <div className="ico"><Icon name={icon} size={22} /></div>
+      <div className="n">{value}</div>
+      <div className="l">{label} · {unit}</div>
     </div>
   );
 }
