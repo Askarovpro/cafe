@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/screens/clientdetail.tsx","./src/screens/clientsscreen.tsx","./src/screens/neworderscreen.tsx","./src/screens/ordersscreen.tsx","./src/screens/reportsscreen.tsx","./vite.config.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/mappicker.tsx","./src/api.ts","./src/main.tsx","./src/screens/clientdetail.tsx","./src/screens/clientsscreen.tsx","./src/screens/neworderscreen.tsx","./src/screens/ordersscreen.tsx","./src/screens/reportsscreen.tsx","./vite.config.ts"],"version":"5.9.3"}

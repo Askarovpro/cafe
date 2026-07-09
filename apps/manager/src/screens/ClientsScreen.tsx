@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import type { Client } from '@b2b/shared';
 import { Icon, som } from '@b2b/web-kit';
 import { api } from '../api.js';
+import { MapPicker } from '../MapPicker.js';
 
 export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [adding, setAdding] = useState(false);
-  const [f, setF] = useState({ name: '', contactName: '', contactPhone: '', label: 'Ofis', address: '' });
+  const empty = { name: '', contactName: '', contactPhone: '', label: 'Ofis', address: '', lat: undefined as number | undefined, lng: undefined as number | undefined };
+  const [f, setF] = useState(empty);
 
   const load = () => api.clients().then(setClients).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -15,9 +17,9 @@ export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
     if (!f.name || !f.contactPhone || !f.address) return;
     await api.createClient({
       name: f.name, contactName: f.contactName, contactPhone: f.contactPhone,
-      locations: [{ label: f.label, address: f.address }],
+      locations: [{ label: f.label, address: f.address, lat: f.lat, lng: f.lng }],
     });
-    setF({ name: '', contactName: '', contactPhone: '', label: 'Ofis', address: '' });
+    setF(empty);
     setAdding(false);
     load();
   };
@@ -38,9 +40,16 @@ export function ClientsScreen({ onOpen }: { onOpen: (c: Client) => void }) {
             <label>Mas'ul shaxs<input value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} /></label>
             <label>Telefon<input value={f.contactPhone} onChange={(e) => setF({ ...f, contactPhone: e.target.value })} placeholder="+998…" /></label>
           </div>
-          <div className="row2" style={{ marginTop: 10 }}>
+          <div className="field" style={{ marginTop: 10 }}>
             <label>Manzil nomi<input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} /></label>
-            <label>Manzil<input value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></label>
+          </div>
+          <div className="field" style={{ marginTop: 10 }}>
+            <label style={{ marginBottom: 2 }}>Manzil — xaritadan tanlang</label>
+            <MapPicker onChange={({ lat, lng, address }) => setF((p) => ({ ...p, lat, lng, address: address || p.address }))} />
+          </div>
+          <div className="field" style={{ marginTop: 10 }}>
+            <label>Manzil (matn)<input value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} placeholder="Xaritadan avto-to'ladi" /></label>
+            {f.lat != null && <div className="muted mono">📍 {f.lat.toFixed(5)}, {f.lng!.toFixed(5)}</div>}
           </div>
           <div className="split" style={{ marginTop: 12 }}>
             <button className="btn btn--ghost" onClick={() => setAdding(false)}>Bekor</button>
