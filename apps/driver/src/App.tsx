@@ -46,12 +46,12 @@ export function App() {
     () => all.filter((o) => ACTIVE.has(o.status)).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [orders],
   );
-  // Cash lifecycle: held (with driver) -> pending (handed over, awaiting manager) -> accepted (closed).
+  // Cash custody: withDriver (undefined) -> handed to manager -> finance -> confirmed (Closed).
   const cashDelivered = all.filter((o) => o.paymentType === PaymentType.Cash && o.status === OrderStatus.Delivered);
-  const held = cashDelivered.filter((o) => !o.cashHandedOver);
-  const pending = cashDelivered.filter((o) => o.cashHandedOver);
-  const heldTotal = held.reduce((s, o) => s + o.total, 0);
-  const pendingTotal = pending.reduce((s, o) => s + o.total, 0);
+  const withDriver = cashDelivered.filter((o) => !o.cashCustody);
+  const handedOn = cashDelivered.filter((o) => o.cashCustody);
+  const heldTotal = withDriver.reduce((s, o) => s + o.total, 0);
+  const handedTotal = handedOn.reduce((s, o) => s + o.total, 0);
   const deliveredTotal = all.filter((o) => DONE.has(o.status)).length;
   const deliveredToday = all.filter((o) => DONE.has(o.status) && isToday(o.updatedAt)).length;
 
@@ -60,7 +60,7 @@ export function App() {
     api.transition(o.id, { action, ...(action === OrderAction.Deliver ? { cashCollected: o.paymentType === PaymentType.Cash } : {}) })
       .then(upsert).catch(() => {});
   const handoverAll = () =>
-    Promise.all(held.map((o) => api.transition(o.id, { action: OrderAction.HandoverCash }).then(upsert))).catch(() => {});
+    Promise.all(withDriver.map((o) => api.transition(o.id, { action: OrderAction.CashToManager }).then(upsert))).catch(() => {});
 
   return (
     <div className="wrap">
@@ -91,7 +91,7 @@ export function App() {
 
       {tab === 'reports' && (
         <Reports
-          held={held} pending={pending} heldTotal={heldTotal} pendingTotal={pendingTotal}
+          withDriver={withDriver} handedOn={handedOn} heldTotal={heldTotal} handedTotal={handedTotal}
           deliveredToday={deliveredToday} deliveredTotal={deliveredTotal} onHandover={handoverAll}
         />
       )}
@@ -108,8 +108,8 @@ export function App() {
   );
 }
 
-function Reports({ held, pending, heldTotal, pendingTotal, deliveredToday, deliveredTotal, onHandover }: {
-  held: Order[]; pending: Order[]; heldTotal: number; pendingTotal: number;
+function Reports({ withDriver, handedOn, heldTotal, handedTotal, deliveredToday, deliveredTotal, onHandover }: {
+  withDriver: Order[]; handedOn: Order[]; heldTotal: number; handedTotal: number;
   deliveredToday: number; deliveredTotal: number; onHandover: () => void;
 }) {
   return (
@@ -117,13 +117,13 @@ function Reports({ held, pending, heldTotal, pendingTotal, deliveredToday, deliv
       <div className="cashhero">
         <div className="cap"><Icon name="wallet" size={16} /> Qo'lingizdagi naqd</div>
         <div className="amt">{som(heldTotal)} <small>so'm</small></div>
-        {pendingTotal > 0 && <div className="hint ico-text"><Icon name="clock" size={14} /> Tasdiq kutilmoqda: {som(pendingTotal)} so'm</div>}
-        {held.length > 0 && (
+        {handedTotal > 0 && <div className="hint ico-text"><Icon name="checkCircle" size={14} /> Menejerga topshirilgan: {som(handedTotal)} so'm</div>}
+        {withDriver.length > 0 && (
           <button className="btn btn--block" style={{ marginTop: 14 }} onClick={onHandover}>
-            <Icon name="wallet" size={20} /> Pulni topshirdim
+            <Icon name="wallet" size={20} /> Menejerga topshirdim
           </button>
         )}
-        {held.length === 0 && pendingTotal === 0 && <div className="hint ico-text"><Icon name="checkCircle" size={14} /> Hammasi topshirilgan</div>}
+        {withDriver.length === 0 && handedTotal === 0 && <div className="hint ico-text"><Icon name="checkCircle" size={14} /> Hammasi topshirilgan</div>}
       </div>
 
       <div className="stats">
@@ -139,14 +139,14 @@ function Reports({ held, pending, heldTotal, pendingTotal, deliveredToday, deliv
         </div>
       </div>
 
-      {(held.length > 0 || pending.length > 0) && <div className="sectiontitle">Naqd buyurtmalar</div>}
+      {(withDriver.length > 0 || handedOn.length > 0) && <div className="sectiontitle">Naqd buyurtmalar</div>}
       <div className="list">
-        {[...held, ...pending].map((o) => (
+        {[...withDriver, ...handedOn].map((o) => (
           <div className="ocard" key={o.id}>
             <div className="ocard__top">
               <span className="ocard__id">#{o.id.length > 8 ? o.id.slice(-4).toUpperCase() : o.id}</span>
               <span style={{ flex: 1 }} />
-              {o.cashHandedOver ? <Chip tone="idle">Topshirildi</Chip> : <Chip tone="active">Qo'lda</Chip>}
+              {o.cashCustody ? <Chip tone="idle">Topshirildi</Chip> : <Chip tone="active">Qo'lda</Chip>}
             </div>
             <div className="ocard__client">{o.clientName}</div>
             <div className="drows">

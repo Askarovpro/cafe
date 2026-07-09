@@ -6,6 +6,7 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import {
+  CashCustody,
   DeliveryType,
   OrderAction,
   OrderStatus,
@@ -225,8 +226,9 @@ app.post('/orders/:id/transition', async (req, reply) => {
     if (body.deliveryType === DeliveryType.Yandex) o.yandexDeeplink = yandexDeeplink(o.location.lat, o.location.lng);
   }
   if (body.action === OrderAction.Deliver) o.cashCollected = body.cashCollected ?? o.paymentType === PaymentType.Cash;
-  if (body.action === OrderAction.HandoverCash) o.cashHandedOver = true;
-  if (body.action === OrderAction.Close && o.paymentType !== PaymentType.Transfer) {
+  if (body.action === OrderAction.CashToManager) o.cashCustody = CashCustody.Manager;
+  if (body.action === OrderAction.CashToFinance) o.cashCustody = CashCustody.Finance;
+  if ((body.action === OrderAction.CashConfirm || body.action === OrderAction.Close) && o.paymentType !== PaymentType.Transfer) {
     const pay: LedgerEntry = { id: id('l'), clientId: o.clientId, orderId: o.id, type: 'payment', amount: o.total, method: o.paymentType, createdBy: 'u1', createdAt: now() };
     ledger.push(pay);
     syncBalance(o.clientId);

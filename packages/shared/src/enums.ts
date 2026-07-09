@@ -4,7 +4,15 @@ export enum Role {
   Manager = 'manager',
   Kitchen = 'kitchen',
   Driver = 'driver',
+  Finance = 'finance', // moliyachi — reconciles cash from managers into the till
   Owner = 'owner',
+}
+
+// Cash custody chain for a delivered cash order (who physically holds the cash).
+// undefined = still with the driver. After the finance confirms, the order is Closed.
+export enum CashCustody {
+  Manager = 'manager',
+  Finance = 'finance',
 }
 
 export enum OrderStatus {
@@ -24,8 +32,11 @@ export enum OrderAction {
   Assign = 'assign', // Ready -> Assigned (manager); own driver or Yandex deeplink
   Pickup = 'pickup', // Assigned -> Delivering (driver)
   Deliver = 'deliver', // Delivering -> Delivered (driver)
-  HandoverCash = 'handover_cash', // Delivered self-transition (driver): marks cash handed to manager
-  Close = 'close', // Delivered -> Closed (manager); cash received / prepaid
+  // Cash custody chain (all Delivered self-transitions, cash orders only):
+  CashToManager = 'cash_to_manager', // driver handed cash to manager -> custody Manager
+  CashToFinance = 'cash_to_finance', // manager handed cash to finance -> custody Finance
+  CashConfirm = 'cash_confirm', // finance confirmed receipt -> Closed + ledger payment
+  Close = 'close', // Delivered -> Closed (manager); non-cash (prepaid/transfer)
   Cancel = 'cancel', // -> Cancelled; reverses side effects only if past Ready
 }
 
@@ -47,8 +58,11 @@ export const ORDER_TRANSITIONS: Record<OrderAction, { from: OrderStatus[]; to: O
   [OrderAction.Assign]: { from: [OrderStatus.Ready], to: OrderStatus.Assigned, role: Role.Manager },
   [OrderAction.Pickup]: { from: [OrderStatus.Assigned], to: OrderStatus.Delivering, role: Role.Driver },
   [OrderAction.Deliver]: { from: [OrderStatus.Delivering], to: OrderStatus.Delivered, role: Role.Driver },
-  // Self-transition: status stays Delivered, side effect sets cashHandedOver = true.
-  [OrderAction.HandoverCash]: { from: [OrderStatus.Delivered], to: OrderStatus.Delivered, role: Role.Driver },
+  // Cash custody chain — self-transitions on Delivered; side effects set cashCustody.
+  [OrderAction.CashToManager]: { from: [OrderStatus.Delivered], to: OrderStatus.Delivered, role: Role.Driver },
+  [OrderAction.CashToFinance]: { from: [OrderStatus.Delivered], to: OrderStatus.Delivered, role: Role.Manager },
+  // Finance confirms cash receipt -> Closed + ledger payment.
+  [OrderAction.CashConfirm]: { from: [OrderStatus.Delivered], to: OrderStatus.Closed, role: Role.Finance },
   [OrderAction.Close]: { from: [OrderStatus.Delivered], to: OrderStatus.Closed, role: Role.Manager },
   // Cancel is special: allowed from any pre-Closed state; role checked separately (manager/owner).
   [OrderAction.Cancel]: {

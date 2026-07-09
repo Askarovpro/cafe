@@ -1,6 +1,6 @@
 // Frozen B2B contract — DTOs. Shared by backend and all frontends. Do not redefine elsewhere.
 
-import { DeliveryType, OrderStatus, PaymentType, Role } from './enums.js';
+import { CashCustody, DeliveryType, OrderStatus, PaymentType, Role } from './enums.js';
 
 export interface Product {
   id: string;
@@ -66,7 +66,7 @@ export interface Order {
   notes?: string;
   posterOrderId?: string; // set after Ready writeback
   cashCollected?: boolean; // driver marks on delivery for cash orders
-  cashHandedOver?: boolean; // driver handed cash to manager; awaiting manager accept (Close)
+  cashCustody?: CashCustody; // cash order: who holds the cash now (undefined = driver). Closed once finance confirms.
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }

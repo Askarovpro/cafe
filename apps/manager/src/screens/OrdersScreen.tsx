@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DeliveryType, OrderAction, OrderStatus, PaymentType } from '@b2b/shared';
+import { CashCustody, DeliveryType, OrderAction, OrderStatus, PaymentType } from '@b2b/shared';
 import type { Order } from '@b2b/shared';
 import { Docket, Icon, Money } from '@b2b/web-kit';
 import { DRIVERS, api } from '../api.js';
@@ -19,7 +19,7 @@ export function OrdersScreen({ orders, onChange }: { orders: Record<string, Orde
   return (
     <>
       {list.map((o) => {
-        const needsAction = o.status === OrderStatus.Ready || (o.status === OrderStatus.Delivered && o.cashHandedOver);
+        const needsAction = o.status === OrderStatus.Ready || (o.status === OrderStatus.Delivered && o.cashCustody === CashCustody.Manager);
         return (
           <div key={o.id} className={needsAction ? 'alert' : ''} style={{ borderRadius: 'var(--r)' }}>
             <Docket order={o} actions={<OrderActions order={o} onChange={onChange} />} />
@@ -63,20 +63,25 @@ function OrderActions({ order, onChange }: { order: Order; onChange: (o: Order) 
     );
   }
   if (order.status === OrderStatus.Delivered) {
-    const isCash = order.paymentType === PaymentType.Cash;
-    return (
-      <>
-        {isCash && (
-          <div className="muted ico-text" style={{ color: order.cashHandedOver ? 'var(--st-ready)' : 'var(--muted)' }}>
-            <Icon name={order.cashHandedOver ? 'checkCircle' : 'clock'} size={15} />
-            {order.cashHandedOver ? 'Driver naqdni topshirdi' : 'Driver hali topshirmagan'}
+    if (order.paymentType !== PaymentType.Cash) {
+      return <button className="btn btn--block" onClick={() => run({ action: OrderAction.Close })}>Yopish (to'landi)</button>;
+    }
+    if (!order.cashCustody) {
+      return <div className="muted ico-text"><Icon name="clock" size={15} /> Driver hali topshirmagan</div>;
+    }
+    if (order.cashCustody === CashCustody.Manager) {
+      return (
+        <>
+          <div className="muted ico-text" style={{ color: 'var(--st-ready)' }}>
+            <Icon name="checkCircle" size={15} /> Driver topshirdi — naqd sizda
           </div>
-        )}
-        <button className="btn btn--block" onClick={() => run({ action: OrderAction.Close })}>
-          {isCash ? <>Naqdni qabul qildim · <Money value={order.total} /> so'm</> : "Yopish (to'landi)"}
-        </button>
-      </>
-    );
+          <button className="btn btn--block" onClick={() => run({ action: OrderAction.CashToFinance })}>
+            <Icon name="wallet" size={18} /> Moliyachiga berdim · <Money value={order.total} /> so'm
+          </button>
+        </>
+      );
+    }
+    return <div className="muted ico-text"><Icon name="clock" size={15} /> Moliyachida — tasdiq kutilmoqda</div>;
   }
   return <div className="muted">Oshxonada…</div>;
 }
