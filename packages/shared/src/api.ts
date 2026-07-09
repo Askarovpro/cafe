@@ -32,6 +32,12 @@ export const API = {
   moneySummary: 'GET /money/summary',
   recordIncome: 'POST /money/income', // finance: cash intake (e.g. from cashier) -> CASHBOX
   recordExpense: 'POST /money/expense', // finance: payout/expense from CASHBOX
+
+  // Payroll (staff)
+  staff: 'GET /staff',
+  createStaff: 'POST /staff',
+  updateStaff: 'PATCH /staff/:id',
+  payStaff: 'POST /staff/:id/pay', // avans/oylik -> money EXPENSE from CASHBOX, tagged staffId
 } as const;
 
 // Response shapes

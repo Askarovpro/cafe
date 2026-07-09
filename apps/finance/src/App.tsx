@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { EXPENSE_CATEGORIES, MoneyMovementType, OrderAction, OrderStatus, PaymentType, CashCustody } from '@b2b/shared';
-import type { Client, MoneyMovement, MoneySummary, Order } from '@b2b/shared';
+import { EXPENSE_CATEGORIES, MoneyMovementType, OrderAction, OrderStatus, PaymentType, PayoutKind, CashCustody } from '@b2b/shared';
+import type { Client, MoneyMovement, MoneySummary, Order, Staff as StaffT } from '@b2b/shared';
 import { ApiClient, Icon, connectOrders, initTelegram, som } from '@b2b/web-kit';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
@@ -10,7 +10,7 @@ const DEV_USER = import.meta.env.VITE_DEV_USER ?? 'f1';
 const DRIVERS: Record<string, string> = { d1: 'Botir' };
 const driverName = (id?: string) => (id ? DRIVERS[id] ?? id : '—');
 
-type Tab = 'confirm' | 'kassa' | 'reports';
+type Tab = 'confirm' | 'kassa' | 'staff' | 'reports';
 
 export function App() {
   const [ready, setReady] = useState(false);
@@ -18,6 +18,7 @@ export function App() {
   const [clients, setClients] = useState<Client[]>([]);
   const [summary, setSummary] = useState<MoneySummary | null>(null);
   const [movements, setMovements] = useState<MoneyMovement[]>([]);
+  const [staff, setStaff] = useState<StaffT[]>([]);
   const [tab, setTab] = useState<Tab>('confirm');
 
   useEffect(() => {
@@ -30,11 +31,13 @@ export function App() {
     api.moneySummary().then(setSummary).catch(() => {});
     api.moneyMovements(40).then(setMovements).catch(() => {});
   };
+  const loadStaff = () => api.staff().then(setStaff).catch(() => {});
   useEffect(() => {
     if (!ready) return;
     api.orders().then((l) => setOrders(Object.fromEntries(l.map((o) => [o.id, o])))).catch(() => {});
     api.clients().then(setClients).catch(() => {});
     loadMoney();
+    loadStaff();
     return connectOrders(WS, { subscribe: 'kds' }, (e) => setOrders((p) => ({ ...p, [e.order.id]: e.order })));
   }, [ready]);
 
@@ -60,11 +63,13 @@ export function App() {
 
       {tab === 'confirm' && <Confirm pending={pending} pendingT={pendingT} onConfirm={confirm} onAll={confirmAll} />}
       {tab === 'kassa' && <Kassa summary={summary} movements={movements} onDone={loadMoney} />}
+      {tab === 'staff' && <Staff staff={staff} onDone={() => { loadStaff(); loadMoney(); }} />}
       {tab === 'reports' && <Reports summary={summary} debtors={debtors} totalDebt={totalDebt} />}
 
       <nav className="nav">
         <button data-active={tab === 'confirm'} onClick={() => setTab('confirm')}><Icon name="money" size={20} /> Naqd</button>
         <button data-active={tab === 'kassa'} onClick={() => setTab('kassa')}><Icon name="wallet" size={20} /> Kassa</button>
+        <button data-active={tab === 'staff'} onClick={() => setTab('staff')}><Icon name="user" size={20} /> Xodimlar</button>
         <button data-active={tab === 'reports'} onClick={() => setTab('reports')}><Icon name="chart" size={20} /> Hisobot</button>
       </nav>
     </div>
@@ -196,6 +201,72 @@ function Reports({ summary, debtors, totalDebt }: { summary: MoneySummary | null
             <span className="mono bal--debt">{som(c.balance)}</span>
           </div>
         ))}
+      </div>
+    </>
+  );
+}
+
+function Staff({ staff, onDone }: { staff: StaffT[]; onDone: () => void }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ name: '', position: '', salary: '' });
+  const [kind, setKind] = useState<PayoutKind>(PayoutKind.Advance);
+  const [amount, setAmount] = useState('');
+
+  const create = async () => {
+    if (!f.name || !f.position) return;
+    await api.createStaff({ name: f.name, position: f.position, salary: Number(f.salary) || 0 });
+    setF({ name: '', position: '', salary: '' }); setAdding(false); onDone();
+  };
+  const pay = async (s: StaffT) => {
+    const a = Number(amount);
+    if (!a || a <= 0) return;
+    await api.payStaff(s.id, { kind, amount: a, note: undefined }).catch((e) => alert((e as Error).message));
+    setAmount(''); setOpenId(null); onDone();
+  };
+
+  return (
+    <>
+      {!adding && <button className="btn btn--block" onClick={() => setAdding(true)}><Icon name="plus" size={20} /> Yangi xodim</button>}
+      {adding && (
+        <div className="card">
+          <h3>Yangi xodim</h3>
+          <div className="row2"><label>Ism<input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+            <label>Lavozim<input value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} placeholder="Oshpaz" /></label></div>
+          <label style={{ marginTop: 10 }}>Oylik<input type="number" value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} placeholder="0" /></label>
+          <div className="split" style={{ marginTop: 12 }}>
+            <button className="btn btn--ghost" onClick={() => setAdding(false)}>Bekor</button>
+            <button className="btn" onClick={create}>Saqlash</button>
+          </div>
+        </div>
+      )}
+
+      <div className="list" style={{ marginTop: 14 }}>
+        {staff.map((s) => (
+          <div key={s.id}>
+            <div className="staffrow" data-open={openId === s.id} onClick={() => setOpenId(openId === s.id ? null : s.id)}>
+              <span className="av"><Icon name="user" size={22} /></span>
+              <div><div className="nm">{s.name}</div><div className="pos">{s.position} · oylik {som(s.salary)}</div></div>
+              <div className="bal">
+                <div className="q" style={{ color: s.balance > 0 ? 'var(--ink)' : 'var(--st-ready)' }}>{som(s.balance)}</div>
+                <div className="cap">qoldiq · avans {som(s.advancesThisMonth)}</div>
+              </div>
+            </div>
+            {openId === s.id && (
+              <div className="paypanel">
+                <div className="segbtns">
+                  <button className={kind === PayoutKind.Advance ? 'btn' : 'btn btn--ghost'} onClick={() => setKind(PayoutKind.Advance)}>Avans</button>
+                  <button className={kind === PayoutKind.Salary ? 'btn' : 'btn btn--ghost'} onClick={() => setKind(PayoutKind.Salary)}>Oylik</button>
+                </div>
+                <label style={{ marginTop: 10 }}>Summa<input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" /></label>
+                <button className="btn btn--block" style={{ marginTop: 12 }} disabled={!Number(amount)} onClick={() => pay(s)}>
+                  {kind === PayoutKind.Advance ? 'Avans berish' : 'Oylik berish'}{amount ? ` · ${som(Number(amount) || 0)} so'm` : ''}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {staff.length === 0 && !adding && <div className="empty">Xodim yo'q. «Yangi xodim» qo'shing.</div>}
       </div>
     </>
   );

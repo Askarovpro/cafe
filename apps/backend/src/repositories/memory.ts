@@ -5,10 +5,11 @@ import {
   type LedgerEntry,
   type Order,
   type Product,
+  type Staff,
   type User,
 } from '@b2b/shared';
 import { id } from '../ids.js';
-import type { AppRepository, ProductUpsert, StoredClientPrice, StoredMoneyAccount, StoredMoneyMovement } from './types.js';
+import type { AppRepository, ProductUpsert, StoredClientPrice, StoredMoneyAccount, StoredMoneyMovement, StoredStaff } from './types.js';
 
 type Seed = {
   users?: User[];
@@ -19,6 +20,7 @@ type Seed = {
   ledgerEntries?: LedgerEntry[];
   moneyAccounts?: StoredMoneyAccount[];
   moneyMovements?: StoredMoneyMovement[];
+  staff?: Staff[];
 };
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -32,6 +34,7 @@ export class MemoryRepository implements AppRepository {
   private ledger = new Map<string, LedgerEntry>();
   private moneyAccounts = new Map<string, StoredMoneyAccount>();
   private moneyMovements = new Map<string, StoredMoneyMovement>();
+  private staff = new Map<string, StoredStaff>();
 
   seed(seed: Seed): void {
     for (const user of seed.users ?? []) this.users.set(user.id, clone(user));
@@ -45,6 +48,10 @@ export class MemoryRepository implements AppRepository {
     for (const entry of seed.ledgerEntries ?? []) this.ledger.set(entry.id, clone(entry));
     for (const account of seed.moneyAccounts ?? []) this.moneyAccounts.set(account.id, clone(account));
     for (const movement of seed.moneyMovements ?? []) this.moneyMovements.set(movement.id, clone(movement));
+    for (const staff of seed.staff ?? []) {
+      const { advancesThisMonth: _advancesThisMonth, paidThisMonth: _paidThisMonth, balance: _balance, ...stored } = staff;
+      this.staff.set(staff.id, clone({ ...stored, createdAt: new Date(0).toISOString() }));
+    }
   }
 
   async findUserByTelegramId(telegramId: string): Promise<User | undefined> {
@@ -196,6 +203,27 @@ export class MemoryRepository implements AppRepository {
   async updateMoneyMovement(movement: StoredMoneyMovement): Promise<StoredMoneyMovement> {
     this.moneyMovements.set(movement.id, clone(movement));
     return clone(movement);
+  }
+
+  async listStaff(): Promise<StoredStaff[]> {
+    return [...this.staff.values()].map(clone);
+  }
+
+  async findStaffById(staffId: string): Promise<StoredStaff | undefined> {
+    return clone(this.staff.get(staffId));
+  }
+
+  async createStaff(staff: StoredStaff): Promise<StoredStaff> {
+    this.staff.set(staff.id, clone(staff));
+    return clone(staff);
+  }
+
+  async updateStaff(staffId: string, patch: Partial<Omit<StoredStaff, 'id' | 'createdAt'>>): Promise<StoredStaff> {
+    const staff = this.staff.get(staffId);
+    if (!staff) throw new Error(`staff ${staffId} not found`);
+    const updated = { ...staff, ...clone(patch), id: staffId };
+    this.staff.set(staffId, updated);
+    return clone(updated);
   }
 
   private withBalance(client: Omit<Client, 'balance'>): Client {

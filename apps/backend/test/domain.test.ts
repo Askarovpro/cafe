@@ -7,6 +7,7 @@ import {
   MoneyMovementType,
   OrderAction,
   OrderStatus,
+  PayoutKind,
   PaymentType,
   Role,
   type Client,
@@ -313,6 +314,188 @@ describe('money', () => {
       todayOut: 7000,
       byDriver: [{ userId: driver.id, amount: 20000 }],
     });
+  });
+});
+
+describe('staff payroll', () => {
+  it('creates staff and lists salary with zero current-month payouts', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [finance] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const financeToken = services.auth.issueToken(finance);
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/staff',
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { name: 'Aziz', position: 'Oshpaz', salary: 4000000 },
+      });
+      const listed = await app.inject({
+        method: 'GET',
+        url: '/staff',
+        headers: { authorization: `Bearer ${financeToken}` },
+      });
+
+      expect(created.statusCode).toBe(201);
+      expect(created.json()).toMatchObject({
+        name: 'Aziz',
+        position: 'Oshpaz',
+        salary: 4000000,
+        active: true,
+        advancesThisMonth: 0,
+        paidThisMonth: 0,
+        balance: 4000000,
+      });
+      expect(listed.statusCode).toBe(200);
+      expect(listed.json()).toEqual([created.json()]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('pays staff advances and salary through approved cashbox expense movements', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [finance] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const financeToken = services.auth.issueToken(finance);
+
+    try {
+      await services.money.recordIncome({ amount: 4000000, category: 'Kassirdan qabul' }, finance.id);
+      const cashbox = await services.money.getOrCreateAccount(MoneyAccountType.Cashbox);
+      const created = await app.inject({
+        method: 'POST',
+        url: '/staff',
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { name: 'Aziz', position: 'Oshpaz', salary: 4000000 },
+      });
+      const staff = created.json();
+
+      const advance = await app.inject({
+        method: 'POST',
+        url: `/staff/${staff.id}/pay`,
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { kind: PayoutKind.Advance, amount: 1000000, note: 'July avans' },
+      });
+      const afterAdvanceAccounts = await services.money.getAccounts();
+      const afterAdvanceStaff = await app.inject({
+        method: 'GET',
+        url: '/staff',
+        headers: { authorization: `Bearer ${financeToken}` },
+      });
+
+      expect(advance.statusCode).toBe(201);
+      expect(advance.json()).toMatchObject({
+        type: MoneyMovementType.Expense,
+        status: MoneyMovementStatus.Approved,
+        fromAccountId: cashbox.id,
+        amount: 1000000,
+        category: 'Avans',
+        note: 'July avans',
+        counterparty: 'Aziz',
+        staffId: staff.id,
+        createdBy: finance.id,
+        approvedBy: finance.id,
+      });
+      expect(afterAdvanceAccounts.find((account) => account.id === cashbox.id)).toMatchObject({ balance: 3000000 });
+      expect(afterAdvanceStaff.json()).toMatchObject([
+        {
+          id: staff.id,
+          advancesThisMonth: 1000000,
+          paidThisMonth: 1000000,
+          balance: 3000000,
+        },
+      ]);
+
+      const salary = await app.inject({
+        method: 'POST',
+        url: `/staff/${staff.id}/pay`,
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { kind: PayoutKind.Salary, amount: 3000000 },
+      });
+      const afterSalaryStaff = await app.inject({
+        method: 'GET',
+        url: '/staff',
+        headers: { authorization: `Bearer ${financeToken}` },
+      });
+
+      expect(salary.statusCode).toBe(201);
+      expect(salary.json()).toMatchObject({ category: 'Oylik', staffId: staff.id, amount: 3000000 });
+      expect(afterSalaryStaff.json()).toMatchObject([
+        {
+          id: staff.id,
+          advancesThisMonth: 1000000,
+          paidThisMonth: 4000000,
+          balance: 0,
+        },
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects non-finance staff reads and payouts', async () => {
+    const repo = new MemoryRepository();
+    repo.seed({ users: [manager, finance] });
+    const { app, services } = await buildServer({
+      repo,
+      env: {
+        botToken: '123456:test-token',
+        databaseUrl: undefined,
+        devAuth: false,
+        jwtSecret: 'test-jwt-secret',
+        port: 0,
+        posterToken: '',
+      },
+    });
+    const financeToken = services.auth.issueToken(finance);
+    const managerToken = services.auth.issueToken(manager);
+
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/staff',
+        headers: { authorization: `Bearer ${financeToken}` },
+        payload: { name: 'Aziz', position: 'Oshpaz', salary: 4000000 },
+      });
+      const staff = created.json();
+      const forbiddenList = await app.inject({
+        method: 'GET',
+        url: '/staff',
+        headers: { authorization: `Bearer ${managerToken}` },
+      });
+      const forbiddenPay = await app.inject({
+        method: 'POST',
+        url: `/staff/${staff.id}/pay`,
+        headers: { authorization: `Bearer ${managerToken}` },
+        payload: { kind: PayoutKind.Advance, amount: 1000000 },
+      });
+
+      expect(forbiddenList.statusCode).toBe(403);
+      expect(forbiddenPay.statusCode).toBe(403);
+    } finally {
+      await app.close();
+    }
   });
 });
 

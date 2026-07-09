@@ -10,6 +10,7 @@ import { PricingService } from './pricing/service.js';
 import { ProductsService } from './products/service.js';
 import { RealtimeHub } from './realtime/hub.js';
 import type { AppRepository } from './repositories/types.js';
+import { StaffService } from './staff/service.js';
 
 export type AppServices = ReturnType<typeof createAppServices>;
 
@@ -35,6 +36,7 @@ export function createAppServices(input: {
     posterSync: new PosterSyncService(input.repo, input.poster),
     pricing: new PricingService(input.repo),
     products: new ProductsService(input.repo),
+    staff: new StaffService(input.repo, money),
     hub,
     repo: input.repo,
   };

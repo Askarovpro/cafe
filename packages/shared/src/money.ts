@@ -47,6 +47,7 @@ export interface MoneyMovement {
   note?: string;
   counterparty?: string;
   orderId?: string; // set for B2B custody movements
+  staffId?: string; // set for salary/advance payouts
   createdBy: string;
   approvedBy?: string;
   createdAt: string; // ISO

@@ -1,8 +1,8 @@
 // Typed API client against the frozen @b2b/shared contract.
 import type {
   AuthResponse, Client, ClientPrice, CreateOrder, LedgerEntry, LedgerResponse,
-  MoneyAccount, MoneyMovement, MoneySummary, OfferedProduct, Order,
-  RecordExpense, RecordIncome, RecordPayment, Transition,
+  CreateStaff, MoneyAccount, MoneyMovement, MoneySummary, OfferedProduct, Order,
+  PayStaff, RecordExpense, RecordIncome, RecordPayment, Staff, UpdateStaff, Transition,
 } from '@b2b/shared';
 
 export class ApiClient {
@@ -64,6 +64,12 @@ export class ApiClient {
   moneySummary() { return this.req<MoneySummary>('GET', '/money/summary'); }
   recordIncome(body: RecordIncome) { return this.req<MoneyMovement>('POST', '/money/income', body); }
   recordExpense(body: RecordExpense) { return this.req<MoneyMovement>('POST', '/money/expense', body); }
+
+  // Payroll
+  staff() { return this.req<Staff[]>('GET', '/staff'); }
+  createStaff(body: CreateStaff) { return this.req<Staff>('POST', '/staff', body); }
+  updateStaff(id: string, body: UpdateStaff) { return this.req<Staff>('PATCH', `/staff/${id}`, body); }
+  payStaff(id: string, body: PayStaff) { return this.req<MoneyMovement>('POST', `/staff/${id}/pay`, body); }
 }
 
 export class ApiError extends Error {

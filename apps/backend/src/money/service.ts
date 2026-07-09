@@ -24,6 +24,7 @@ type CreateMovementInput = {
   note?: string;
   counterparty?: string;
   orderId?: string;
+  staffId?: string;
   createdBy: string;
   approvedBy?: string;
   occurredAt?: string;
@@ -84,6 +85,7 @@ export class MoneyService {
       note: input.note,
       counterparty: input.counterparty,
       orderId: input.orderId,
+      staffId: input.staffId,
       createdBy: input.createdBy,
       approvedBy: input.approvedBy,
       createdAt: now,
@@ -201,7 +203,7 @@ export class MoneyService {
     });
   }
 
-  async recordExpense(input: RecordExpense, createdBy: string): Promise<MoneyMovement> {
+  async recordExpense(input: RecordExpense & { staffId?: string }, createdBy: string): Promise<MoneyMovement> {
     const cashbox = await this.getOrCreateAccount(MoneyAccountType.Cashbox);
     return this.createMovement({
       type: MoneyMovementType.Expense,
@@ -211,6 +213,7 @@ export class MoneyService {
       category: input.category,
       note: input.note,
       counterparty: input.counterparty,
+      staffId: input.staffId,
       createdBy,
       approvedBy: createdBy,
     });

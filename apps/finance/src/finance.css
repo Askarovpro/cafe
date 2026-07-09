@@ -57,7 +57,23 @@
 }
 .nav button { appearance: none; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border-radius: 14px; font: inherit; font-weight: 650; font-size: 14px; color: var(--muted); }
 .nav button[data-active='true'] { background: var(--pill); color: var(--pill-ink); }
-.nav { grid-template-columns: 1fr 1fr 1fr; }
+.nav { grid-template-columns: repeat(4, 1fr); }
+.nav button { font-size: 12px; padding: 10px 4px; flex-direction: column; gap: 4px; }
+
+/* Staff */
+.staffrow {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: var(--surface);
+  border-radius: var(--r-sm); box-shadow: var(--shadow-sm); cursor: pointer;
+}
+.staffrow[data-open='true'] { box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm); }
+.staffrow .av { width: 42px; height: 42px; border-radius: 13px; flex: none; background: var(--surface-2); color: var(--ink); display: grid; place-items: center; }
+.staffrow .nm { font-weight: 650; }
+.staffrow .pos { color: var(--muted); font-size: 13px; }
+.staffrow .bal { margin-left: auto; text-align: right; }
+.staffrow .bal .q { font-family: var(--font-mono); font-weight: 800; }
+.staffrow .bal .cap { color: var(--muted); font-size: 11px; }
+.paypanel { background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); padding: 14px; margin-top: -6px; }
 
 /* Kassa forms + movements */
 label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
