@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import type { Ingredient } from '@b2b/shared';
 import { ApiClient, Icon, initTelegram } from '@b2b/web-kit';
 
@@ -13,6 +13,9 @@ export function App() {
   const [ready, setReady] = useState(false);
   const [ings, setIngs] = useState<Ingredient[]>([]);
   const [tab, setTab] = useState<Tab>('sklad');
+  // session shopping list: ingredientId -> qty to buy (seeded once from low stock, then editable)
+  const [buyList, setBuyList] = useState<Record<string, number>>({});
+  const seeded = useRef(false);
 
   useEffect(() => {
     const { initData, inTelegram } = initTelegram();
@@ -22,6 +25,13 @@ export function App() {
   useEffect(() => { if (ready) load(); }, [ready]);
 
   const low = ings.filter((i) => i.isLow);
+  useEffect(() => {
+    if (!seeded.current && ings.length) {
+      seeded.current = true;
+      const need = ings.filter((i) => i.isLow);
+      setBuyList(Object.fromEntries(need.map((i) => [i.id, Math.max(1, Math.round(i.minStock - i.stock))])));
+    }
+  }, [ings]);
 
   return (
     <div className="wrap">
@@ -32,12 +42,12 @@ export function App() {
       </header>
 
       {tab === 'sklad' && <Sklad ings={ings} onDone={load} />}
-      {tab === 'bozor' && <Bozorlik low={low} onDone={load} />}
+      {tab === 'bozor' && <Bozorlik ings={ings} buyList={buyList} setBuyList={setBuyList} onDone={load} />}
 
       <nav className="nav">
         <button data-active={tab === 'sklad'} onClick={() => setTab('sklad')}><Icon name="box" size={20} /> Sklad</button>
         <button data-active={tab === 'bozor'} onClick={() => setTab('bozor')}>
-          {low.length > 0 && <span className="badge">{low.length}</span>}
+          {Object.keys(buyList).length > 0 && <span className="badge">{Object.keys(buyList).length}</span>}
           <Icon name="bag" size={20} /> Bozorlik
         </button>
       </nav>
@@ -118,36 +128,68 @@ function AdjustPanel({ ing, onDone }: { ing: Ingredient; onDone: () => void }) {
   );
 }
 
-function Bozorlik({ low, onDone }: { low: Ingredient[]; onDone: () => void }) {
+function Bozorlik({ ings, buyList, setBuyList, onDone }: {
+  ings: Ingredient[]; buyList: Record<string, number>; setBuyList: (f: (p: Record<string, number>) => Record<string, number>) => void; onDone: () => void;
+}) {
+  const byId = useMemo(() => Object.fromEntries(ings.map((i) => [i.id, i])), [ings]);
+  const entries = Object.entries(buyList).map(([id, qty]) => ({ ing: byId[id] as Ingredient | undefined, qty })).filter((x) => x.ing);
   const groups = useMemo(() => {
-    const m: Record<string, Ingredient[]> = {};
-    for (const i of low) (m[i.supplier] ??= []).push(i);
+    const m: Record<string, { ing: Ingredient; qty: number }[]> = {};
+    for (const e of entries) (m[e.ing!.supplier] ??= []).push({ ing: e.ing!, qty: e.qty });
     return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [low]);
+  }, [buyList, ings]);
 
-  const buy = (i: Ingredient) => {
-    const need = Math.max(0, i.minStock - i.stock);
-    api.adjustStock(i.id, { delta: need, reason: 'xarid' }).then(onDone).catch(() => {});
+  const setQty = (id: string, qty: number) => setBuyList((p) => ({ ...p, [id]: Math.max(0, qty) }));
+  const remove = (id: string) => setBuyList((p) => { const n = { ...p }; delete n[id]; return n; });
+  const receive = (id: string, qty: number) => {
+    if (qty <= 0) { remove(id); return; }
+    api.adjustStock(id, { delta: qty, reason: 'xarid' }).then(() => { remove(id); onDone(); }).catch(() => {});
   };
+  const receiveAll = () => Promise.all(entries.filter((e) => e.qty > 0).map((e) => api.adjustStock(e.ing!.id, { delta: e.qty, reason: 'xarid' })))
+    .then(() => { setBuyList(() => ({})); onDone(); }).catch(() => {});
 
-  if (low.length === 0) return <div className="empty"><div className="big"><Icon name="checkCircle" size={30} /></div>Hammasi yetarli. Xarid shart emas.</div>;
+  const notInList = ings.filter((i) => !(i.id in buyList));
 
   return (
     <>
-      <div className="sectiontitle">Kam qolgan — postavshik bo'yicha</div>
+      <div className="split" style={{ marginBottom: 12 }}>
+        <label style={{ flex: 1 }}>Mahsulot qo'shish
+          <select defaultValue="" onChange={(e) => { const i = byId[e.target.value]; if (i) setQty(i.id, Math.max(1, Math.round(i.minStock - i.stock)) || 1); e.currentTarget.value = ''; }}>
+            <option value="">＋ tanlang…</option>
+            {notInList.map((i) => <option key={i.id} value={i.id}>{i.name} ({num(i.stock)} {i.unit})</option>)}
+          </select>
+        </label>
+      </div>
+
+      {entries.length === 0 && <div className="empty"><div className="big"><Icon name="checkCircle" size={30} /></div>Ro'yxat bo'sh. Kam qolgan bo'lsa avtomatik chiqadi.</div>}
+
       {groups.map(([supplier, items]) => (
         <div className="supplier" key={supplier}>
           <h3><Icon name="store" size={16} /> {supplier}</h3>
-          {items.map((i) => (
-            <div className="shoprow" key={i.id}>
-              <span className="dot dot--low" />
-              <div><div className="nm">{i.name}</div><div className="meta muted">qoldi {num(i.stock)} · min {num(i.minStock)} {i.unit}</div></div>
-              <span className="need">+{num(Math.max(0, i.minStock - i.stock))} {i.unit}</span>
-              <button className="btn tiny buy" onClick={() => buy(i)}>Oldim</button>
+          {items.map(({ ing, qty }) => (
+            <div className="shoprow" key={ing.id}>
+              <div style={{ flex: 1 }}>
+                <div className="nm">{ing.name}{ing.isLow && <span className="dot dot--low" style={{ display: 'inline-block', marginLeft: 8, verticalAlign: 'middle' }} />}</div>
+                <div className="meta muted">qoldi {num(ing.stock)} · min {num(ing.minStock)} {ing.unit}</div>
+              </div>
+              <div className="qtybox">
+                <button className="pm" onClick={() => setQty(ing.id, qty - 1)}>−</button>
+                <input type="number" value={qty} onChange={(e) => setQty(ing.id, Number(e.target.value))} />
+                <button className="pm" onClick={() => setQty(ing.id, qty + 1)}>+</button>
+                <span className="u">{ing.unit}</span>
+              </div>
+              <button className="btn tiny buy" onClick={() => receive(ing.id, qty)}>Oldim</button>
+              <button className="rm" onClick={() => remove(ing.id)} aria-label="o'chirish">×</button>
             </div>
           ))}
         </div>
       ))}
+
+      {entries.length > 0 && (
+        <button className="btn btn--block" style={{ marginTop: 8 }} onClick={receiveAll}>
+          <Icon name="checkCircle" size={20} /> Hammasini qabul qildim ({entries.length})
+        </button>
+      )}
     </>
   );
 }

@@ -49,8 +49,18 @@ label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); font-weig
 .shoprow + .shoprow { margin-top: 8px; }
 .shoprow .nm { font-weight: 650; }
 .shoprow .need { margin-left: auto; font-family: var(--font-mono); font-weight: 800; color: var(--accent-deep); }
+.shoprow { gap: 8px; }
 .shoprow .buy { flex: none; }
 .btn.tiny { padding: 9px 12px; font-size: 13px; }
+.qtybox { display: flex; align-items: center; gap: 3px; flex: none; }
+.qtybox .pm { width: 30px; height: 30px; border-radius: 8px; border: 0; background: var(--surface-2); font-size: 18px; line-height: 1; cursor: pointer; color: var(--ink); }
+.qtybox input { width: 50px; text-align: center; padding: 6px 4px; font-family: var(--font-mono); font-weight: 700; }
+.qtybox .u { font-size: 12px; color: var(--muted); font-family: var(--font-mono); margin-left: 2px; }
+.rm { border: 0; background: none; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 2px; flex: none; }
+select { font: inherit; padding: 12px 13px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%;
+  appearance: none; -webkit-appearance: none; padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2398979d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 18px; }
 
 .empty { text-align: center; color: var(--muted); padding: 64px 0; }
 .empty .big { width: 72px; height: 72px; border-radius: 22px; margin: 0 auto 14px; background: var(--surface); box-shadow: var(--shadow-sm); display: grid; place-items: center; color: var(--st-ready); }
