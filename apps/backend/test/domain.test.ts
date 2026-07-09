@@ -15,7 +15,7 @@ import {
   type User,
 } from '@b2b/shared';
 import { createAppServices } from '../src/app-services.js';
-import { FakePosterClient } from '../src/poster-sync/poster-client.js';
+import { buildIncomingOrderPayload, FakePosterClient, mapPosterProduct } from '../src/poster-sync/poster-client.js';
 import { RealtimeHub } from '../src/realtime/hub.js';
 import { MemoryRepository } from '../src/repositories/memory.js';
 import { createTelegramInitData } from '../src/auth/telegram-init-data.js';
@@ -218,6 +218,7 @@ describe('money', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const financeToken = services.auth.issueToken(finance);
@@ -331,6 +332,7 @@ describe('staff payroll', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const financeToken = services.auth.issueToken(finance);
@@ -377,6 +379,7 @@ describe('staff payroll', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const financeToken = services.auth.issueToken(finance);
@@ -467,6 +470,7 @@ describe('staff payroll', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const financeToken = services.auth.issueToken(finance);
@@ -513,6 +517,7 @@ describe('inventory', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const warehouseToken = services.auth.issueToken(warehouse);
@@ -561,6 +566,7 @@ describe('inventory', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const warehouseToken = services.auth.issueToken(warehouse);
@@ -616,6 +622,7 @@ describe('inventory', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const warehouseToken = services.auth.issueToken(warehouse);
@@ -672,6 +679,7 @@ describe('inventory', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const managerToken = services.auth.issueToken(manager);
@@ -711,6 +719,7 @@ describe('inventory', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const warehouseToken = services.auth.issueToken(warehouse);
@@ -752,6 +761,7 @@ describe('inventory', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
     const managerToken = services.auth.issueToken(manager);
@@ -1053,6 +1063,7 @@ describe('server wiring', () => {
         jwtSecret: 'test-jwt-secret',
         port: 0,
         posterToken: '',
+        posterSpotId: 1,
       },
     });
 
@@ -1080,6 +1091,70 @@ describe('server wiring', () => {
 });
 
 describe('poster sync', () => {
+  it('maps Poster products from kopecks and hidden flags', () => {
+    expect(
+      mapPosterProduct(
+        {
+          product_id: 101,
+          product_name: 'Osh',
+          category_name: 'Main',
+          unit: 'portion',
+          price: { '1': '30000' },
+          cost: 18000,
+          hidden: '0',
+        },
+        1,
+      ),
+    ).toMatchObject({
+      posterId: '101',
+      name: 'Osh',
+      category: 'Main',
+      basePrice: 300,
+      cost: 180,
+      unit: 'portion',
+      isStopped: false,
+    });
+
+    expect(mapPosterProduct({ product_id: 102, price: { '1': '12000' }, cost: 5000, hidden: '1' }, 1).isStopped).toBe(true);
+  });
+
+  it('builds incoming order payload with top-level spot and Poster product ids', () => {
+    const payload = buildIncomingOrderPayload(
+      {
+        id: 'o1',
+        clientId: client.id,
+        clientName: client.name,
+        createdBy: manager.id,
+        status: OrderStatus.Ready,
+        items: [
+          { productId: productA.id, posterProductId: productA.posterId, name: productA.name, qty: 2, unitPrice: 320, lineTotal: 640 },
+          { productId: productB.id, posterProductId: productB.posterId, name: productB.name, qty: 1, unitPrice: 125.5, lineTotal: 125.5 },
+        ],
+        total: 765.5,
+        paymentType: PaymentType.Transfer,
+        location: client.locations[0],
+        contactPhone: client.contactPhone,
+        portions: 2,
+        notes: 'No onion',
+        createdAt: '2026-07-09T00:00:00.000Z',
+        updatedAt: '2026-07-09T00:00:00.000Z',
+      },
+      7,
+    );
+
+    expect(payload).toEqual({
+      spot_id: 7,
+      phone: client.contactPhone,
+      first_name: client.name,
+      comment: 'No onion',
+      products: [
+        { product_id: productA.posterId, count: 2, price: 32000 },
+        { product_id: productB.posterId, count: 1, price: 12550 },
+      ],
+    });
+    expect(payload).not.toHaveProperty('order');
+  });
+
   it('upserts the same product once and updates its fields', async () => {
     const { services, repo } = seededServices();
 

@@ -18,7 +18,7 @@ import { badRequest, conflict, forbidden, notFound } from '../errors.js';
 import { id, isoNow } from '../ids.js';
 import type { LedgerService } from '../ledger/service.js';
 import type { MoneyService } from '../money/service.js';
-import type { PosterClient } from '../poster-sync/poster-client.js';
+import type { PosterClient, PosterOrder } from '../poster-sync/poster-client.js';
 import type { AppRepository } from '../repositories/types.js';
 import type { RealtimeHub } from '../realtime/hub.js';
 
@@ -140,7 +140,7 @@ export class OrdersService {
   }
 
   private async ensureReadySideEffects(order: Order, user: User): Promise<void> {
-    if (!order.posterOrderId) order.posterOrderId = await this.poster.createIncomingOrder(order);
+    if (!order.posterOrderId) order.posterOrderId = await this.poster.createIncomingOrder(await this.toPosterOrder(order));
     const existingCharge = await this.repo.findLedgerEntry({ orderId: order.id, type: 'charge' });
     if (!existingCharge) {
       await this.ledger.appendCharge({
@@ -151,6 +151,17 @@ export class OrdersService {
         note: 'order ready',
       });
     }
+  }
+
+  private async toPosterOrder(order: Order): Promise<PosterOrder> {
+    const items = await Promise.all(
+      order.items.map(async (item) => {
+        const product = await this.repo.findProductById(item.productId);
+        if (!product) throw notFound('product not found');
+        return { ...item, posterProductId: product.posterId };
+      }),
+    );
+    return { ...order, items };
   }
 
   private async ensureClosePayment(order: Order, user: User): Promise<void> {

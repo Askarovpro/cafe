@@ -12,7 +12,7 @@ import { registerRoutes } from './routes/register-routes.js';
 export async function buildServer(options: { env?: Env; repo?: AppRepository } = {}) {
   const env = options.env ?? readEnv();
   const repo = options.repo ?? (env.databaseUrl ? createPostgresRepository(env.databaseUrl) : new MemoryRepository());
-  const poster = env.posterToken ? new HttpPosterClient(env.posterToken) : new FakePosterClient();
+  const poster = env.posterToken ? new HttpPosterClient(env.posterToken, env.posterSpotId) : new FakePosterClient();
   const notifier = env.botToken
     ? new GrammyNotifier(env.botToken, async (userId) => (await repo.findUserById(userId))?.telegramId)
     : new NoopNotifier();
